@@ -61,7 +61,7 @@ getVarCov(lme.fit3,type="conditional",individuals = "1")
 
 
 lme.fit4 <- lme(Height ~ Age,random=list(Type=pdDiag(~Age)),data=data)
-getVarCov(lme.fit4,type="conditional",individuals = "1"
+getVarCov(lme.fit4,type="conditional",individuals = "1")
           
           
 #设置方差协方差结构R
