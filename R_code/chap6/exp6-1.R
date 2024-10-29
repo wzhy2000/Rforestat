@@ -1,13 +1,16 @@
-data <- read.csv("D1.冬奥核心区-白桦data_all.csv", header = TRUE,  fileEncoding = "GBK",sep = ',')
-dim(data)
-names(data)
-data$H <- round(data$H * 100) 
+library("forestat")
+data(birch)
+dim(birch)
+names(birch)
+summary(birch[, c("D", "H", "CBH", "CLR", "CW")])
+birch$H <- round(birch$H * 100)
 set.seed(123)
-data <- data[sample(nrow(data), 500), ]
+birch <- birch[sample(nrow(birch), 500), ]
 
-attach(data)
+attach(birch)
 
 null_model <- glm(H~1, family = poisson())
+
 model <- glm(H~D+CBH+CW, family = poisson())
 summary(model)
 p_value <- pchisq(model$null.deviance - model$deviance, model$df.null - model$df.residual, lower.tail = FALSE)
