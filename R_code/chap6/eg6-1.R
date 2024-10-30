@@ -1,4 +1,4 @@
-flora <- read.table("flora.csv", header=TRUE, sep=",")
+flora <- read.table("data6-1.csv", header=TRUE, sep=",")
 attach(flora)
 
 model_1a <- glm(maple~elevation, family=poisson)

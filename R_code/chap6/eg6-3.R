@@ -1,4 +1,4 @@
-floraPA <- read.table("floraPA.csv", header=TRUE, sep=",")
+floraPA <- read.table("data6-2.csv", header=TRUE, sep=",")
 attach(floraPA)
 model_3a <- glm(pine ~ temperature, family=binomial)
 
