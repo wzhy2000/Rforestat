@@ -28,13 +28,27 @@ FittingEvaluationIndex <- function(EstiH, ObsH) {
 }
 
 # 读取数据
-sm21 <- read.csv('la_m.csv', header=TRUE)
-sm21v <- read.csv('la_v.csv', header=TRUE)
-sm22 <- read.csv('wh_m.csv', header=TRUE)
-sm22v <- read.csv('wh_v.csv', header=TRUE)
+sm21 <- read.csv("la_m.csv")
+sm21v <- read.csv("la_v.csv")
+total_data <- read.csv("la_tot.csv")
+
+sm21 <- na.omit(sm21)
+sm21v <- na.omit(sm21v)
+total_data <- na.omit(total_data)
+
+sm21$Plot <- as.factor(sm21$Plot)
+sm21$DBH <- as.numeric(sm21$DBH)    
+sm21$Hdom <- as.numeric(sm21$Hdom)
+
+summary(sm21)
+summary(sm21v)
+summary(total_data)
 
 # 构建第一个广义可加模型
 mgcv1634 <- gam(log(h) ~ s(hdo, k=30, bs="cr") + s(d, k=40, bs="cr") + ti(hdo, d, k=34, bs="cr"), data=sm21)
+
+# 输出模型摘要信息
+summary(mgcv1634)
 
 # 计算训练数据的预测值和评估指标
 p.mgcv1634 <- exp(fitted(mgcv1634))
@@ -44,18 +58,11 @@ FittingEvaluationIndex(p.mgcv1634, sm21$h)
 p.newdatam1634 <- predict(mgcv1634, newdata=sm21v, type="response")
 FittingEvaluationIndex(exp(p.newdatam1634), sm21v$h)
 
-# 输出模型摘要信息
-summary(mgcv1634)
 
-# 绘制部分依赖图
-pd1634 <- partial(mgcv1634, pred.var=c("d", "hdo"))
-rwb <- colorRampPalette(c("red", "white", "blue"))
-pdp21634 <- plotPartial(pd1634, contour=TRUE, col.regions=rwb, xlab="胸径 DBH/cm \n 落叶松广义可加模型 \n GAM-larch", ylab="优势高 \n hdo/m")
+# 对测试数据集进行预测
+p.newdatam1634 <- predict(mgcv1634, newdata = sm21v, type = "response")
+FittingEvaluationIndex(exp(p.newdatam1634), sm21v$h)
 
-# 保存部分依赖图
-png(filename='Rpl.png', width=2000, height=1000, res=300)
-grid.arrange(pdp21634, ncol=1)
-dev.off()
 
 # 计算残差并绘制预测残差图
 pr.mgcv1634 <- exp(predict(mgcv1634, newdata=sm21v))
@@ -71,9 +78,20 @@ rp.mgcv1634 <- ggplot(tt.mgcv1634, aes(pr.mgcv1634, rs.mgcv1634)) +
   scale_y_continuous(name='残差\n Residual error/m', limits=c(-10,10)) +
   geom_hline(aes(yintercept=0), size=1.3) +
   ggtitle("落叶松广义可加模型\n GAM-larch") +
-  theme(plot.title=element_text(vjust=-10, size=18), plot.title=element_text(hjust=0.1, size=18))
-
+  theme(plot.title = element_text(vjust = -10, size = 18)) +
+  theme(plot.title = element_text(hjust = 0.1, size = 18))
 # 保存预测残差图
 png(filename='Rp.png', width=3700, height=1700, res=300)
 grid.arrange(rp.mgcv1634, ncol=1)
+dev.off()
+
+
+# 绘制部分依赖图
+pd1634 <- partial(mgcv1634, pred.var=c("d", "hdo"))
+rwb <- colorRampPalette(c("red", "white", "blue"))
+pdp21634 <- plotPartial(pd1634, contour=TRUE, col.regions=rwb, xlab="胸径 DBH/cm \n 落叶松广义可加模型 \n GAM-larch", ylab="优势高 \n hdo/m")
+
+# 保存部分依赖图
+png(filename='Rpl.png', width=2000, height=1000, res=300)
+grid.arrange(pdp21634, ncol=1)
 dev.off()

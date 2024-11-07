@@ -3,6 +3,7 @@ library(rattle)
 data(wine)
 X <- wine[, 2:ncol(wine)]
 y <- wine[, 1]
+set.seed(6)
 train_index <- sample(1:nrow(wine), 0.7 * nrow(wine))
 X_train <- X[train_index, ]
 y_train <- y[train_index]
@@ -25,9 +26,9 @@ print(cm)
 # 绘制混淆矩阵
 library(ggplot2)
 library(reshape2)
-cm <- matrix(c(20, 0, 0,
-               1, 18, 0,
-               0, 1, 14), 
+cm <- matrix(c(18, 0, 0,
+               1, 19, 0,
+               0, 1, 15), 
              nrow = 3, byrow = TRUE,
              dimnames = list(Prediction = c("1", "2", "3"),
                              Reference = c("1", "2", "3")))

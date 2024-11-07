@@ -1,3 +1,4 @@
+source("exp11-1.R")
 NH <- H~(c0 / (1 + c1 * exp(-c2 * D))) /
   (1 - 1 / (1 + exp(b0 + b1 * D + b2 * cw)))
 NHCB <- HCB~H / (1 + exp(b0 + b1 * D + b2 * cw))
@@ -40,11 +41,12 @@ data <- data.frame(
     m1.SUR$resids[, 3]
   )
 ) # 将残差、对应的模型、方程整理到一个数据中
-
+pdf("图11.1.pdf",height = 4, width = 8)
 p <- ggplot(data, aes(X, Residuals, fill = Method)) +
   geom_boxplot() # 绘制箱线图
-
-ggsave("plot.png", plot = p, height = 5, units = "in") # 保存图像
+p
+dev.off()
+# ggsave("plot.pdf", plot = p, height = 5, units = "in") # 保存图像
 
 
 

@@ -1,6 +1,6 @@
 
 #例7.1数据加载
-data <- read_excel("sample_data.xlsx")
+data <- read.csv("data-{sample}-7-1.CSV",sep = ",", header = TRUE)
 data$Age <- (-1/data$Age + 1/20)
 data$Height<-log(data$Height)
 data$Type <- as.factor(data$Type)

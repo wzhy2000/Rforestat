@@ -1,3 +1,5 @@
+library("systemfit")
+data(ppine)
 hg.formula <- hg ~ exp(h0 + h1 * log(tht) + h2 * tht^2 + h3 * elev + h4 * cr)
 dg.formula <- dg ~ exp(d0 + d1 * log(dbh) + d2 * hg + d3 * cr + d4 * ba)
 labels <- list("height.growth", "diameter.growth")
@@ -14,10 +16,5 @@ model.2sls <- nlsystemfit("2SLS", model, start.values,
 )
 print(model.2sls)
 
-model <- list(hg.formula, dg.formula)
-model.2sls <- nlsystemfit("2SLS", model, start.values,
-                          data = ppine,
-                          eqnlabels = labels, inst = inst
-)
-print(model.2sls)
+
 

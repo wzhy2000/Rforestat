@@ -39,7 +39,10 @@ stan_fit <- model$fit
 samples_with_warmup <- rstan::extract(stan_fit, inc_warmup = TRUE, permuted = FALSE)
 
 library(bayesplot)
-mcmc_trace(samples_with_warmup)
+# mcmc_trace(samples_with_warmup)
+
+mcmc_trace(samples_with_warmup, pars = c("b_Intercept", "b_sin2MUX1", "b_cos3MUX2", "sigma", "lprior", "lp__"))
+
 
 model1 <- brm(
   y ~ sin(2 * X1) + cos(3 * X2),

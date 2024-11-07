@@ -1,7 +1,11 @@
 # 加载数据
 library(brms)
 library(Rcpp)
-bhdata_cross <- read.csv('data12-1.csv')
+library(forestat)
+
+data("birch")
+bhdata_cross <- birch[, c("CW", "D", "SD", "CLR", "plot")]
+
 
 # 定义交叉验证函数
 CV <- function(n,Z,seed=888){

@@ -1,8 +1,8 @@
-floraPA <- read.table("data6-2.csv", header=TRUE, sep=",")
+floraPA <- read.csv("data-{floraPA}-6-3.csv", header=TRUE, sep=",")
 attach(floraPA)
 model_3a <- glm(pine ~ temperature, family=binomial)
 
-png("图6.1c.png", height = 800, width = 800)
+pdf("图6.1c.pdf", height = 8, width = 8)
 plot(temperature, pine, las=1, pch=16, cex = 2, col="green", cex.axis=1.8, cex.lab=1.8)
 temperatureValues <- seq(min(temperature), max(temperature), by=0.01)
 fittedValues <- predict(model_3a, list(temperature=temperatureValues), type="response")

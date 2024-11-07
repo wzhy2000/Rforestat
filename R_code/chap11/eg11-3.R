@@ -7,13 +7,13 @@ inst <- ~ income + farmPrice + trend
 fit2sls <- systemfit(system, "2SLS", inst = inst, data = Kmenta)
 print(fit2sls)
 
-fitols <- systemfit(eqSystem)
+fitols <- systemfit(system)
 print(fitols)
 
-fitsur <- systemfit(eqSystem, method = "SUR")
+fitsur <- systemfit(system, method = "SUR")
 print(fitsur)
 
-fit3sls <- systemfit(eqSystem,
+fit3sls <- systemfit(system,
                      method = "3SLS",
                      inst = ~ income + farmPrice + trend
 )

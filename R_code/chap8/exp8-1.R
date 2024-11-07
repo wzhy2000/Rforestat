@@ -1,6 +1,6 @@
 library("splines")
 library("locfit")
-
+library("forestat")
 
 FittingEvaluationIndex <- function(EstiH, ObsH) {
   Index<-array(dim=6)
@@ -24,7 +24,8 @@ FittingEvaluationIndex <- function(EstiH, ObsH) {
 
 
 # 1.数据加载
-data1 <- read.csv("D1.冬奥核心区-落叶松data_all.csv", fileEncoding = "GBK")
+data(larch)
+data1 <- larch
 attach(data1)
 names(data1)
 dim(data1)
@@ -110,7 +111,7 @@ for (i in seq_along(data1$D)) {
 }
 
 FittingEvaluationIndex(pre, data1$CW)
-install.packages("santaR")
+# install.packages("santaR")
 library(santaR)
 help(santaR)
 AIC_smooth_spline(fit.s1)
