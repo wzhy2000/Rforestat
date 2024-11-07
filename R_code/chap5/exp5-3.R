@@ -3,7 +3,7 @@ library(dplyr)
 library(ggcorrplot)
 library(ggsci)
 
-data1=read.xlsx("30m.xlsx",sheet = 1, colNames = T)
+data1=read.csv("data-{30m}-5-3.csv",header =TRUE, sep = ",")
 data1$gx11<-(data1$x11-min(data1$x11))/(max(data1$x11)-min(data1$x11))
 data1$gx37<-(data1$x37-min(data1$x37))/(max(data1$x37)-min(data1$x37))
 data1$gx46<-(data1$x46-min(data1$x46))/(max(data1$x46)-min(data1$x46))

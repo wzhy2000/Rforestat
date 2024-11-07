@@ -1,7 +1,7 @@
 library(systemfit)
-library(openxlsx)
-train.up5.HCB <- read.xlsx("train.up5.hcb.xlsx",sheet="Sheet 1")
-test.up5.HCB <- read.xlsx("test.up5.hcb.xlsx",sheet="Sheet 1")
+
+train.up5.HCB <- read.csv("data-{train.up5.hcb}-exp11-1.CSV",sep = ",", fileEncoding = "GBK")
+test.up5.HCB <- read.csv("data-{test.up5.hcb}-exp11-1.CSV",sep = ",", fileEncoding = "GBK")
 t.up5 <- train.up5.HCB
 
 attach(t.up5)

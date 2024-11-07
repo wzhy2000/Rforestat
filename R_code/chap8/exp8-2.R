@@ -1,8 +1,11 @@
-library("openxlsx")
+library("forestat")
 library(nlme)
 
-# 其中生物量是Stem，Branch，Foliage和Fruit之和
-data2<-read.xlsx("D3.xlsx",sheet = 1, colNames = TRUE)
+
+# 其中AGB是Stem，Branch，Foliage和Fruit之和
+data(crassifolia)
+data2 <- crassifolia
+data2$AGB <- data2$Stem + data2$Branch + data2$Foliage + data2$Fruit
 
 set.seed(1)
 datapartde <-sample(2, nrow(data2), replace = TRUE, prob = c(0.7,0.3))
@@ -35,28 +38,27 @@ FittingEvaluationIndex <- function(EstiH, ObsH) {
 
 
 # 幂函数（异速生长模型）
-fit1<-nls(生物量~a*胸径^b+c*树高^d, start=c(a=1,b=1,c=1,d=1), data=trainde)
+fit1<-nls(AGB~a*D0^b+c*H0^d, start=c(a=1,b=1,c=1,d=1), data=trainde)
 summary(fit1)
-AIC(fit1)
-BIC(fit1)
-FittingEvaluationIndex(predict(fit1, newdata = trainde), trainde$生物量)
-FittingEvaluationIndex(predict(fit1, newdata = testde), testde$生物量)
+cat(AIC(fit.p), BIC(fit.p))
+FittingEvaluationIndex(predict(fit1, newdata = trainde), trainde$AGB)
+FittingEvaluationIndex(predict(fit1, newdata = testde), testde$AGB)
 
 
 
 # 指数函数
-fit2<-nls(生物量~a*exp(b*胸径+c*树高), start=c(a=1,b=0.1,c=0.1),data=trainde)
+fit2<-nls(AGB~a*exp(b*D0+c*H0), start=c(a=1,b=0.1,c=0.1),data=trainde)
 summary(fit2)
 AIC(fit2)
 BIC(fit2)
-FittingEvaluationIndex(predict(fit2, newdata = trainde), trainde$生物量)
-FittingEvaluationIndex(predict(fit2, newdata = testde), testde$生物量)
+FittingEvaluationIndex(predict(fit2, newdata = trainde), trainde$AGB)
+FittingEvaluationIndex(predict(fit2, newdata = testde), testde$AGB)
 
 # Richard
-fit.richard<-nls(生物量~a*(1-exp(-b*胸径+c*树高)), start=c(a=1,b=-0.1,c=0.1), data=trainde)
+fit.richard<-nls(AGB~a*(1-exp(-b*D0+c*H0)), start=c(a=1,b=-0.1,c=0.1), data=trainde)
 summary(fit.richard)
 AIC(fit.richard)
 BIC(fit.richard)
-FittingEvaluationIndex(predict(fit.richard, newdata = trainde), trainde$生物量)
-FittingEvaluationIndex(predict(fit.richard, newdata = testde), testde$生物量)
+FittingEvaluationIndex(predict(fit.richard, newdata = trainde), trainde$AGB)
+FittingEvaluationIndex(predict(fit.richard, newdata = testde), testde$AGB)
 

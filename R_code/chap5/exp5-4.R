@@ -1,7 +1,9 @@
 library("openxlsx")
 library("dplyr")
-data=read.xlsx("leidafanyanshuju.xlsx",sheet = 1, colNames = T)
-mydata=select(data,LH,LHCB,LCW1,LCW2,LCW,CPA,D0,H0,HCB0,CW01,CW02,CW)  
+library("forestat")
+
+data("crassifolia")
+mydata=select(crassifolia,LH,LHCB,LCW1,LCW2,LCW,CPA,D0,H0,HCB0,CW01,CW02,CW)  
 x=model.matrix(LH~.,mydata)[,-1]
 y=mydata$LH
 

@@ -2,10 +2,12 @@
 library(BLR)
 data(wheat)
 y = Y[, 1]
+set.seed(123)
 
 # 划分数据集
-whichSetNa <- sample(1:length(y), size=150, replace=FALSE)
-y[whichSetNa] <- NA
+whichNa <- sample(1:length(y), size=150, replace=FALSE)
+y[whichNa] <- NA
+
 blr<- BLR(
   y = y,
   XL = X,
@@ -18,6 +20,7 @@ blr<- BLR(
   thin = 1
 )
 
+y = Y[, 1]
 # 模型评估
 MSE.tst <- mean((blr$yHat[whichNa] - y[whichNa])^2)
 print(paste("Test Set Mean Squared Error: ", MSE.tst))
@@ -30,3 +33,4 @@ print(paste("Test Set Correlation: ", COR.tst))
 
 COR.trn <- cor(blr$yHat[-whichNa], y[-whichNa])
 print(paste("Training Set Correlation: ", COR.trn))
+

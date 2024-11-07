@@ -1,10 +1,10 @@
 library(systemfit)
-library(openxlsx)
+library(forestat)
 
 options(digits = 4)
+data(crassifolia)
 
-dataset <- read.xlsx("./Code/GX_method2.xlsx", sheet = "GX_method2")
-attach(dataset)
+attach(crassifolia)
 
 DBH <- D0
 AGB <- Stem + Branch + Foliage + Fruit
@@ -20,10 +20,10 @@ startvalues <- c(
 instrument <- ~ DBH + AGB
 
 agb_dbh.sur <- nlsystemfit(
-  method = "SUR", models, startvalues, data = dataset
+  method = "SUR", models, startvalues, data = crassifolia
 )
 agb_dbh.2sls <- nlsystemfit(
-  method = "2SLS", models, startvalues, inst = instrument, data = dataset
+  method = "2SLS", models, startvalues, inst = instrument, data = crassifolia
 )
 
 
