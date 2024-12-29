@@ -6,6 +6,7 @@ library(nlme)
 data(crassifolia)
 data2 <- crassifolia
 data2$AGB <- data2$Stem + data2$Branch + data2$Foliage + data2$Fruit
+attach(data2)
 
 set.seed(1)
 datapartde <-sample(2, nrow(data2), replace = TRUE, prob = c(0.7,0.3))
