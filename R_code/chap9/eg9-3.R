@@ -23,8 +23,11 @@ pred <- predict.gam(b, newd)
 # 生成不包含 s(x0) 的预测值
 pred0 <- predict(b, newd, exclude = "s(x0)")
 
+head(pred)
+head(pred0)
+
 # 保存图像为黑白调，适合书籍打印
-png("predict_plot_bw.png", width = 800, height = 600, bg = "white")  # 背景设为白色
+pdf("predict_plot_bw.pdf", width = 8, height = 6, bg = "white")  # 背景设为白色
 
 # 绘制黑白线条图，横纵坐标为英文
 plot(newd$x0, pred, type = "l", col = "black", lwd = 2,

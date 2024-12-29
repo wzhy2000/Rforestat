@@ -32,7 +32,8 @@ anova(model, model_1a, model_1b, test = "Chisq")
 
 predict_height <- predict(model_1a, type = "response")
 
-png("D_H_fitting_plot.png", width = 800, height = 800)
+
+pdf("D_H_fitting_plot.pdf", width = 8, height = 6, family = "GB1")
 par(mgp = c(2.8,1,0))
 plot(D, H, xlab = "胸径/cm", ylab = "树高/cm", las = 1, 
      pch = 16, col = "green", cex = 1, main = "胸径-树高拟合图", 
@@ -41,7 +42,7 @@ points(D, predict_height, pch = 16, col = "red", cex = 1)
 dev.off()
 
 residuals <- residuals(model_1a, type = "response")
-png("Residuals.png", width = 800, height = 800)
+pdf("Residuals.pdf", width = 8, height = 6, family = "GB1")
 par(mgp = c(2.8,1,0))
 plot(predict_height, residuals, main = "残差图",xlab = "拟合值", 
      ylab = "残差", pch = 16, col = "green", cex = 1, cex.main = 1.5, 

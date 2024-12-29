@@ -1,7 +1,7 @@
 # load_preprocess.R
 
-library(openxlsx)
-data_m <- read.xlsx("30m.xlsx", sheet = 1, colNames = TRUE)
+
+data_m <- read.csv("data-{30m}-exp13-1.csv",sep = ",")
 data_m <- data_m[, -c(2, 3)]  # 删除不需要的列
 set.seed(63) # 设定随机种子
 datapartde <- sample(nrow(data_m), 0.7 * nrow(data_m))

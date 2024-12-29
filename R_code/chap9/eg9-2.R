@@ -34,7 +34,7 @@ cat("AIC:", AIC(bg), "\n")
 cat("BIC:", BIC(bg), "\n")
 
 # GCV/UBRE score for the model
-cat("GCV/UBRE score:", summary(bg)$gcv.ubre, "\n")
+# cat("GCV/UBRE score:", summary(bg)$gcv.ubre, "\n")
 
 # Smoothing parameters used in the model
 cat("\nSmoothing parameters:\n")
@@ -54,8 +54,8 @@ cat("\nREML Score:\n")
 print(bg$reml)
 
 # Confidence intervals for parametric coefficients using Bayesian posterior covariance
-cat("\nConfidence Intervals for Parametric Coefficients:\n")
-print(confint(bg, parm="all", level=0.95))
+# cat("\nConfidence Intervals for Parametric Coefficients:\n")
+# print(confint(bg, parm="all", level=0.95))
 
 # Extracting deviance residuals for checking
 cat("\nDeviance Residuals (5-point summary):\n")
@@ -69,3 +69,4 @@ print(bg$converged)
 # Number of iterations during model fitting
 cat("\nNumber of iterations:\n")
 print(bg$iter)
+

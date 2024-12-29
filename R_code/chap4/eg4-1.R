@@ -1,5 +1,5 @@
 sample_mean <- 13
-sample_sd <- 0.37
+sample_sd <- 0.3
 sample_size <- 4
 
 confidence_level <- 0.95

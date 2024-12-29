@@ -9,5 +9,4 @@ Z <- (mean_A - mean_B) / sqrt(sd_A^2 / n_A + sd_B^2 / n_B)
 
 p_value <- 2 * pnorm(-abs(Z))
 
-print(sprintf("Z-value: %f", Z))
-print(sprintf("P-value: %f", p_value))
+cat("Z-value:",  Z, "  P-value: ", p_value)

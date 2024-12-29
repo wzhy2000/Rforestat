@@ -1,6 +1,6 @@
-setwd("/path/to/radar_data")
-library(xlsx)
-radar_data <- read.xlsx("雷达反演数据.xlsx", 1)
+library(forestat)
+data("crassifolia")
+radar_data <- crassifolia
 
 library(dplyr)
 yd_H <- select(radar_data, Plot1, H0)

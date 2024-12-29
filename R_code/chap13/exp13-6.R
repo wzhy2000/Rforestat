@@ -1,6 +1,6 @@
 source("load_preprocess.R")
 #  神经网络
-
+library(neuralnet)
 # 1. 数据预处理
 library(RSNNS)
 maxs <- apply(trainde_m1, 2, max) 
