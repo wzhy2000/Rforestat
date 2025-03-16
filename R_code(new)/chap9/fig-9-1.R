@@ -1,0 +1,27 @@
+library("splines")
+library("locfit")
+library(forestat)
+data("larch")
+data1 <- larch
+attach(data1)
+xlims=range(D)
+x.grid=seq(from=xlims[1],to=xlims[2])
+# 幂函数
+fit6<-nls(CW~a*D^(b),start=c(a=2,b=0.3))
+summary(fit6)
+preds=predict(fit6,newdata=list(D=x.grid),se.fit=TRUE)
+pdf("图8.5a幂函数模型.pdf", width = 8, height = 4, family = "GB1")
+par(mar = c(4, 5.2, 2, 2), mgp = c(3, 1, 0))
+plot(D,CW,xlim=xlims,col="darkgrey", xlab="胸径(cm)", ylab="冠幅(m)", cex.lab = 2, cex.axis = 2)
+lines(x.grid,preds,lwd=2,col="blue")
+dev.off()
+
+# 单分子式模型
+fit7 <- nls(CW ~ a * (1 - exp(-b * D)), start = c(a = 4, b = 0.16))
+summary(fit7)
+preds=predict(fit7,newdata=list(D=x.grid),se.fit=TRUE)
+pdf("图8.5b单分子式模型.pdf", width = 8, height = 4, family = "GB1")
+par(mar = c(4, 5.2, 2, 2), mgp = c(3, 1, 0))
+plot(D,CW,xlim=xlims,col="darkgrey", xlab="胸径(cm)", ylab="冠幅(m)", cex.lab = 2, cex.axis = 2)
+lines(x.grid,preds,lwd=2,col="blue")
+dev.off()

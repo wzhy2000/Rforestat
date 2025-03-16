@@ -1,0 +1,6 @@
+library(gbm)
+model <- gbm(formula = Species ~ ., data = iris, distribution = "gaussian")
+best.iter <- gbm.perf(model, method = "OOB")
+print(model)
+print(best.iter)
+gbm(formula = Species ~ ., distribution = "gaussian", data = iris)
