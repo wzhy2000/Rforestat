@@ -1,0 +1,2 @@
+library(forestat)
+data(picea)

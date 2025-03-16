@@ -1,0 +1,7 @@
+data <- read.csv("data-{eg4-10}.csv")
+attach(data)
+model1 <- aov(Height0 ~ plot)
+summary(model1)
+plot <- as.factor(plot)
+model2 <- aov(Height0 ~ plot + DBH)
+summary(model2)
