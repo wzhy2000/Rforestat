@@ -1,30 +1,26 @@
 library(systemfit)
-data.train <- read.csv("train_data_exp11-1.csv", sep = ",", fileEncoding = "GBK")
-data.test <- read.csv("test_data_exp11-1.csv", sep = ",", fileEncoding = "GBK")
-train_set <- train_data
+library(forestat)
 
-summary(data.train)
-set.seed(123)
-idx.train <- sample(1:nrow(data1), size = 0.7 * nrow(data1))
-data.train <- data1[idx.train, ]
-data.test <- data1[-idx.train, ]
+options(digits = 4)
+data(picea)
 
-eqMsg <- Msg ~ a1 + a2*D^2 + a3*D*H 
-eqMsp <- Msp ~ b1 + b2*D^2 + b3*D*H 
-eqMsz <- Msz ~ c1 + c2*D^2 + c3*D*H
-eqMsy <- Msy ~ d1 + d2*D^2 + d3*D*H
-eqMds <- Mds ~ Msg + Msp + Msz + Msy 
+attach(picea)
 
-model <- list(eqMsg, eqMsp, eqMsz, eqMsy, eqMds)
-start.values <- c(a1 = -1, a2 = 0.1, a3 = 0.1,
-                  b1 = 0.5, b2 = -0.1, b3 = -0.1,
-                  c1 = -0.88, c2 = -0.1, c3 = 0.1,
-                  d1 = 1.84, d2 = 0.1, d3 = 0.1)
-model.exp1.sur <- nlsystemfit("SUR", model, start.values, data = data.train) 
+DBH <- D0
+AGB <- STEM + BRANCH + FOLIAGE + FRUIT
+
+NDBH <- DBH ~ beta1 * exp(-beta2 * LH - beta3 * CPA)
+NAGB <- AGB ~ alpha1 * DBH^alpha2 * LH^alpha3
+
+models <- list(NDBH, NAGB)
+startvalues <- c(
+  beta1 = 1, beta2 = 0.1, beta3 = 0.1,
+  alpha1 = 1, alpha2 = 1, alpha3 = 0.1
+)
+instrument <- ~ DBH + AGB
+
+modele3.sur <- nlsystemfit(method = "SUR", models, startvalues, data = picea)
+modele3.2sls <- nlsystemfit(method = "2SLS", models, startvalues, inst = instrument, data = picea)
 
 
-summary(model.exp1.sur)
 
-coefs <- rbind(model.exp1.sur$b) 
-rownames(coefs) <- list("SUR") 
-print(coefs)
