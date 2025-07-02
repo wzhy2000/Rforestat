@@ -47,21 +47,6 @@ This package fully supports the examples and code in *Forest Statistics Modeling
 
 ------
 
-## 📎 目录结构 | Package Structure
-
-```
-forestat/
-├── R/                      # 函数代码 | R functions
-├── data/                   # 数据集 (.rda) | Datasets
-├── man/                    # 帮助文档 | Documentation
-├── vignettes/              # 教程示例 | Vignettes
-├── DESCRIPTION             # 包描述 | Package metadata
-├── NAMESPACE               # 函数导出声明 | Export definitions
-├── forestat_1.2.0.tar.gz   # 可安装文件 | Installable package
-```
-
-------
-
 ## 📖 参考文献 | Reference
 
 > 作者：XXX，《林业统计建模与 R 语言》，出版年份：20XX
