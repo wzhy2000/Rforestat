@@ -1,129 +1,91 @@
+library(splines)
 library(forestat)
-library(dplyr)
-library(MASS)
-library(nlme)
-
-###########(1)数据集划分 ###################
 data(larch)
-pt <- unique(birch$PLOT)
-hdo.list <- lapply(pt, function(p) {
-  max(birch[birch$PLOT == p, "H"], na.rm = TRUE)
-})
-hdo.df <- data.frame(PLOT = pt, hdo = unlist(hdo.list))
-data <- birch %>% left_join(hdo.df, by = "PLOT")
-set.seed(123)
-# 划分索引，70% 的数据用于训练
-train.index <- sample(1:nrow(data), size = 0.7 * nrow(data))
-# 创建训练集和测试集
-train.data <- data[train.index, ]
-test.data <- data[-train.index, ]
 
-#############(2) 模型构建 ################
-
-myInitial <- function(mCall, LHS, data, ...) {
-  D <- data[["D"]]
-  y <- data[["H"]]
-  hdo <- data[["hdo"]]
-  b1 <- max(y, na.rm = TRUE) / max(hdo, na.rm = TRUE) 
-  b2 <- coef(lm(log(y) ~ log(hdo)))[2]
-  b3 <- 1 / mean(D, na.rm = TRUE)
-  b4 <- sd(y, na.rm = TRUE) / mean(y, na.rm = TRUE)
-  value <- c(b1 = b1, b2 = b2, b3 = b3, b4 = b4)
-  names(value) <- mCall[c("b1", "b2", "b3", "b4")]
-  return(value)
+plot.model <- function(x, y, x.seq, y.preds){
+  plot(x, y, cex = 0.5, col = "darkgray", xlab = "D", ylab = "CW")
+  lines(x.seq, y.preds$fit, lwd = 2, col = "blue")
+  lines(x.seq, y.preds$fit + 2 * y.preds$se.fit, lty = "dashed")
+  lines(x.seq, y.preds$fit - 2 * y.preds$se.fit, lty = "dashed")
 }
 
-mySelfStart <- selfStart(~ 1.3 + b1 * hdo^b2 * (1 - exp(-b3 * D))^b4, initial = myInitial, 
-                         parameters = c("b1", "b2", "b3", "b4"))
 
-start <- getInitial(H ~ mySelfStart(hdo = hdo, D = D, b1, b2, b3, b4), data = train.data)
+# 多项式回归模型
+model.p3 <- lm(CW ~ poly(D, 3), data = larch)
+summary(model.p3)
+cat(AIC(model.p3), BIC(model.p3))
+FittingEvaluationIndex(predict(model.p3, newdata = larch), larch$CW)
 
-deriv3.formula <- deriv3(~ 1.3 + b1 * hdo^b2 * (1 - exp(-b3 * D))^b4, c("b1", "b2", "b3", "b4"), function(hdo, D, b1, b2, b3, b4) NULL)
+model.p3a <- lm(CW ~ D + I(D^2) + I(D^3), data = larch)
 
-model.nls2 <- nls(H ~ deriv3.formula(hdo, D, b1, b2, b3, b4), data = train.data, 
-                  start = list(b1 = start[1], b2 = start[2], b3 = start[3], b4 = start[4]))
+model.p3b <- lm(CW ~ cbind(D, D^2, D^3), data = larch)
 
-model.gnls2 <- gnls(H ~ deriv3.formula(hdo, D, b1, b2, b3, b4), data = train.data, 
-                    params = list(b1 ~ 1, b2 ~ 1, b3 ~ 1, b4 ~ 1),  # 指定参数结构
-                    start = list(b1 = start[1], b2 = start[2], b3 = start[3], b4 = start[4]),
-                    weights = varPower(form = ~ fitted(.)))
+xlims <- range(larch$D)
+x.seq <- seq(from = xlims[1], to = xlims[2])
+y.preds <- predict(model.p3, newdata = list(D = x.seq), se = TRUE)
 
+plot.model(larch$D, larch$CW, x.seq, y.preds)
 
-summary(model.nls2)
-summary(model.gnls2)
+model.p1 <- lm(CW ~ D, data = larch)
+model.p3 <- lm(CW ~ poly(D, 3, raw = T), data = larch)
+model.p4 <- lm(CW ~ poly(D, 4, raw = T), data = larch)
 
-rss.nls2 <- sum((fitted(model.nls2) - train.data$H)^2)
-df.nls2 <- nrow(train.data) - length(coef(model.gnls2))
-sqrt(rss.nls2 / df.nls2)
-
-rss.gnls2 <- sum((fitted(model.gnls2) - train.data$H)^2)
-df.gnls2 <- nrow(train.data) - length(coef(model.gnls2))
-sqrt(rss.gnls2 / df.gnls2)
-
-rss.gnls2 <- sum(residuals(model.gnls2, type = "response")^2)
-rss.gnls2 <- sum(residuals(model.gnls2, type = "pearson")^2)
-rss.gnls2 <- sum(residuals(model.gnls2, type = "normalized")^2)
-
-sigma(model.gnls2)
-df.gnls2 <- nrow(train.data) - length(coef(model.gnls2))
-sqrt(deviance(model.gnls2)/1818)
+anova(model.p1, model.p3, model.p4)
 
 
-############ (3)模型性能 ####################
-FittingEvaluationIndex(fitted(model.nls2), train.data$H)
-FittingEvaluationIndex(fitted(model.gnls2), train.data$H)
+# 回归样条
+model.bs <- lm(CW ~ bs(D, df = 6), data = larch)
+summary(model.bs)
+y.preds <- predict(model.bs, newdata = list(D = x.seq), se = TRUE)
 
-cat("AIC: ", "model.nls:", AIC(model.nls2), "model.gnls:", AIC(model.gnls2), "\n")
-cat("BIC: ", "model.nls:", BIC(model.nls2), "model.gnls:", BIC(model.gnls2), "\n")
+cat(AIC(model.bs), BIC(model.bs))
+FittingEvaluationIndex(predict(model.bs, newdata = larch), larch$CW)
 
+plot.knots <- function(model, splines){
+  actual_knots <- attr(splines, "knots")
+  y_knots <- predict(model, newdata = data.frame(D = actual_knots))
+  points(actual_knots, y_knots, col = "red", pch = 19,cex = 0.5)
+  for (i in 1:length(actual_knots)) {
+    abline(v = actual_knots[i], lty = 2, col = "red")
+  }
+}
 
-#############(4) 模型诊断 ####################
+plot.model(larch$D, larch$CW, x.seq, y.preds)
+plot.knots(model.bs, model.bs$model$bs)
 
-profile.nls2 <- profile(model.nls2)
-pdf("exp.profile.pdf", width = 8, height = 8, family = "GB1")
-par(mfrow = c(2, 2))
-plot(profile.nls2, cex.lab = 2, cex.axis = 2)
-dev.off()
+# 自然样条
+model.ns <- lm(CW ~ ns(D, df = 4), data = larch)
+summary(model.ns)
+y.preds <- predict(model.ns, newdata = list(D = x.seq), se = TRUE)
 
-rms.curv(model.nls2)
-
-RSS <- sum(residuals(model.nls2)^2)
-TSS <- sum((train.data$H - mean(train.data$H))^2)
-pseudo_R2 <- 1 - (RSS / TSS)
-pseudo_R2
-
-############## (5) 模型性能 ######################
-pre.nls2 <- predict(model.nls2, newdata = test.data)
-
-FittingEvaluationIndex(pre.nls2, test.data$H)
-
-############### (6) 可视化 ###############
-
-pdf("9.9fit.plot.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5, 5, 4, 2), mgp = c(3.5, 1, 0))
-plot(pre.nls2, test.data$H, xlab = "拟合树高(m)", ylab = "树高(m)", las = 1, 
-     pch = 16, col = "black", cex = 1, 
-     cex.lab = 2.5, cex.axis = 2.5)
-dev.off()
-
-# 训练集残差图
-res.train <- residuals(model.nls2, type = "response")
-pdf("9.10Residuals.train.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5, 5, 4, 2), mgp = c(3.5, 1, 0), mfrow = c(1, 1))
-plot(fitted(model.nls2), res.train, xlab = "拟合值(m)", 
-     ylab = "残差(m)", pch = 16, col = "black", cex = 1, 
-     cex.lab = 2.5, cex.axis = 2.5)
-abline(h = 0, col = "red")
-dev.off()
+cat(AIC(model.ns), BIC(model.ns))
+FittingEvaluationIndex(predict(model.ns, newdata = larch), larch$CW)
+plot.model(larch$D, larch$CW, x.seq, y.preds)
+plot.knots(model.ns, model.ns$model$ns)
 
 
-# 测试集残差图
-res.test <- test.data$H - pre.nls2
-pdf("9.11Residuals.test.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5, 5, 4, 2), mgp = c(3.5, 1, 0))
-plot(pre.nls2, res.test, xlab = "拟合值(m)", 
-     ylab = "残差(m)", pch = 16, col = "black", cex = 1, 
-     cex.lab = 2.5, cex.axis = 2.5)
-abline(h = 0, col = "red")
-dev.off()
+# 光滑样条
+model.ss5 <- smooth.spline(larch$D, larch$CW, df = 5)
+model.ss <- smooth.spline(larch$D, larch$CW, cv = TRUE)
 
+FittingEvaluationIndex(predict(model.ss5, larch$D)$y, larch$CW)
+FittingEvaluationIndex(predict(model.ss, larch$D)$y, larch$CW)
+
+y.preds <- list(x = model.ss5$x, y = model.ss5$yin, fit = model.ss5$y )
+res <- (model.ss5$yin - model.ss5$y) / (1 - model.ss5$lev)
+sigma <- sqrt(var(res))
+y.preds$se.fit <- sigma * sqrt(model.ss5$lev)
+plot.model(larch$D, larch$CW, y.preds$x, y.preds)
+
+# 局部回归
+model.lo1 <- loess(CW ~ D, span = 0.1, data = larch)
+model.lo5 <- loess(CW ~ D, span = 0.5, data = larch)
+
+FittingEvaluationIndex(predict(model.lo1, newdata = larch), larch$CW)
+FittingEvaluationIndex(predict(model.lo5, newdata = larch), larch$CW)
+
+y.preds <- predict(model.lo1, data.frame(D = x.seq), se = TRUE)
+plot.model(larch$D, larch$CW, x.seq, y.preds)
+
+y.preds <- predict(model.lo5, data.frame(D = x.seq), se = TRUE)
+plot.model(larch$D, larch$CW, x.seq, y.preds)

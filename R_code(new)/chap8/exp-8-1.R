@@ -1,91 +1,83 @@
-library(splines)
-library(forestat)
-data(larch)
+library(lmfor)
 
-plot.model <- function(x, y, x.seq, y.preds){
-  plot(x, y, cex = 0.5, col = "darkgray", xlab = "D", ylab = "CW")
-  lines(x.seq, y.preds$fit, lwd = 2, col = "blue")
-  lines(x.seq, y.preds$fit + 2 * y.preds$se.fit, lty = "dashed")
-  lines(x.seq, y.preds$fit - 2 * y.preds$se.fit, lty = "dashed")
-}
+# 加载数据
+data(spati2)
+summary(spati2)
 
+#拟合线性模型
+model.gls.null <- gls(h ~ 1, data = spati2)
+model.gls.null
+mean(spati2$h)
+sd(spati2$h)
 
-# 多项式回归模型
-model.p3 <- lm(CW ~ poly(D, 3), data = larch)
-summary(model.p3)
-cat(AIC(model.p3), BIC(model.p3))
-FittingEvaluationIndex(predict(model.p3, newdata = larch), larch$CW)
+spati2$y <- (spati2$d)/sqrt(spati2$h - 1.3)
+pdf("图7.3a.pdf", width = 8, height = 6, family = "GB1")
+par(mar = c(5, 5.5, 4, 2), mgp = c(3.5, 1, 0))
+plot(spati2$d, spati2$y, pch = as.numeric(spati2$plot) %% 25, cex = 0.5, xlab = "胸径(cm)", 
+     ylab = expression(d/sqrt(h-1.3)), col = gray(0.7), cex.axis = 2.2, cex.lab = 2.2)#计算高度与直径关系绘制线性模型的散点图
+plots <- unique(spati2$plot)
+for(i in 1:length(plots)){
+  thisplot <- spati2[spati2$plot == plots[i], ]
+  model <- lm(y ~ d,data = thisplot)
+  dvec <- seq(min(thisplot$d), max(thisplot$d), length = 10)
+  lines(dvec, coef(model)[1] + coef(model)[2]  *dvec)}
+dev.off()
 
-model.p3a <- lm(CW ~ D + I(D^2) + I(D^3), data = larch)
-
-model.p3b <- lm(CW ~ cbind(D, D^2, D^3), data = larch)
-
-xlims <- range(larch$D)
-x.seq <- seq(from = xlims[1], to = xlims[2])
-y.preds <- predict(model.p3, newdata = list(D = x.seq), se = TRUE)
-
-plot.model(larch$D, larch$CW, x.seq, y.preds)
-
-model.p1 <- lm(CW ~ D, data = larch)
-model.p3 <- lm(CW ~ poly(D, 3, raw = T), data = larch)
-model.p4 <- lm(CW ~ poly(D, 4, raw = T), data = larch)
-
-anova(model.p1, model.p3, model.p4)
-
-
-# 回归样条
-model.bs <- lm(CW ~ bs(D, df = 6), data = larch)
-summary(model.bs)
-y.preds <- predict(model.bs, newdata = list(D = x.seq), se = TRUE)
-
-cat(AIC(model.bs), BIC(model.bs))
-FittingEvaluationIndex(predict(model.bs, newdata = larch), larch$CW)
-
-plot.knots <- function(model, splines){
-  actual_knots <- attr(splines, "knots")
-  y_knots <- predict(model, newdata = data.frame(D = actual_knots))
-  points(actual_knots, y_knots, col = "red", pch = 19,cex = 0.5)
-  for (i in 1:length(actual_knots)) {
-    abline(v = actual_knots[i], lty = 2, col = "red")
-  }
-}
-
-plot.model(larch$D, larch$CW, x.seq, y.preds)
-plot.knots(model.bs, model.bs$model$bs)
-
-# 自然样条
-model.ns <- lm(CW ~ ns(D, df = 4), data = larch)
-summary(model.ns)
-y.preds <- predict(model.ns, newdata = list(D = x.seq), se = TRUE)
-
-cat(AIC(model.ns), BIC(model.ns))
-FittingEvaluationIndex(predict(model.ns, newdata = larch), larch$CW)
-plot.model(larch$D, larch$CW, x.seq, y.preds)
-plot.knots(model.ns, model.ns$model$ns)
+#引入固定效应拟合模型
+spati2$plot<-as.factor(spati2$plot)
+model.gls.plot <- gls(h ~ plot - 1, data = spati2)
+coef(model.gls.plot)[1:2]
+mean(spati2$h[spati2$plot==2])
+mean(coef(model.gls.plot))
+model.gls.plot$sigma
 
 
-# 光滑样条
-model.ss5 <- smooth.spline(larch$D, larch$CW, df = 5)
-model.ss <- smooth.spline(larch$D, larch$CW, cv = TRUE)
+#线性混合效应模型构建
+model.plot <- lme(h ~ 1, random = ~1 | plot, data = spati2)
+summary(model.plot)
 
-FittingEvaluationIndex(predict(model.ss5, larch$D)$y, larch$CW)
-FittingEvaluationIndex(predict(model.ss, larch$D)$y, larch$CW)
+spati2$y <- spati2$d / sqrt(spati2$h - 1.3)
+model.d.plot <- lme(y ~ d, random = ~1 | plot, data = spati2)
+summary(model.d.plot)
 
-y.preds <- list(x = model.ss5$x, y = model.ss5$yin, fit = model.ss5$y )
-res <- (model.ss5$yin - model.ss5$y) / (1 - model.ss5$lev)
-sigma <- sqrt(var(res))
-y.preds$se.fit <- sigma * sqrt(model.ss5$lev)
-plot.model(larch$D, larch$CW, y.preds$x, y.preds)
 
-# 局部回归
-model.lo1 <- loess(CW ~ D, span = 0.1, data = larch)
-model.lo5 <- loess(CW ~ D, span = 0.5, data = larch)
+ranef(model.d.plot)
+fixef(model.d.plot)
+pdf("图7.3b.pdf", width = 8, height = 6, family = "GB1")
+par(mar = c(5, 5.5, 4, 2), mgp = c(3.5, 1, 0))
+plot(spati2$d,spati2$y,pch=as.numeric(spati2$plot)%%25,cex=0.5,xlab = "胸径(cm)",ylab=
+         expression(d/sqrt(h-1.3)),col=gray(0.7), cex.lab = 2.2, cex.axis = 2.2)#引入随机效应的拟合图
+linesplot(spati2$d,predict(model.d.plot),spati2$plot,add=TRUE,cex=0,col.lin = gray(0.2))
+abline(fixef(model.d.plot),lwd=3)
+dev.off()
 
-FittingEvaluationIndex(predict(model.lo1, newdata = larch), larch$CW)
-FittingEvaluationIndex(predict(model.lo5, newdata = larch), larch$CW)
 
-y.preds <- predict(model.lo1, data.frame(D = x.seq), se = TRUE)
-plot.model(larch$D, larch$CW, x.seq, y.preds)
+#拟合固定效应加随机效应
+model.d.d <- lme(y ~ d, random = ~d | plot, data = spati2)
+summary(model.d.d)
 
-y.preds <- predict(model.lo5, data.frame(D = x.seq), se = TRUE)
-plot.model(larch$D, larch$CW, x.seq, y.preds)
+
+
+#参数估计
+ranef_value<-ranef(model.d.d)
+head(ranef_value, n=3)
+fixef(model.d.d)
+coef(model.d.d)[1:3,]
+
+
+#设置方差结构，进行置信区间
+
+model.d.d2 <- update(model.d.d, weights = varPower(form = ~d))    
+intervals(model.d.d2, which = "fixed")
+intervals(model.d.d2, which = "var-cov")
+
+
+#模型比较
+model.d.d2 <- update(model.d.d, weights = varPower(form = ~d))
+anova(model.d.d, model.d.d2)
+
+
+
+
+
+

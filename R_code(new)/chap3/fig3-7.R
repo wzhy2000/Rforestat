@@ -12,9 +12,9 @@ ggplot(mydat, aes(x = Age.Group, y = Height, fill = Age.Group)) +
                                         c("幼龄林", "近熟林"), c("成熟林", "过熟林")), label = "p.signif", 
                      method = "t.test", size = 5, vjust = 0.5, color = "red") +
   scale_fill_brewer(palette = "Pastel1") +
-  labs(x = "年龄组别", 
+  labs(x = "龄组", 
        y = "树高(m)", 
-       fill = "年龄组别") +
+       fill = "龄组") +
   theme_minimal(base_size = 14) +
   theme(             
     axis.title.x = element_text(size = 16), axis.title.y = element_text( size = 16),  

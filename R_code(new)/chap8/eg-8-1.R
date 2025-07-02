@@ -1,77 +1,104 @@
-library(forestat)
-library(splines)
-data(larch)
-attach(larch)
-
-########### 1.多项式样条 #################
-# 三次多项式回归模型
-model.p3 <- lm(CW ~ poly(D, 3), data = larch)
-summary(model.p3)
-
-# 绘图
-pdf("多项式2阶.pdf", height = 6, width = 8, family = "GB1")
-fit1=lm(CW~poly(D,2), data=larch)
-summary(fit1)
-# ,raw=T
-xlims=range(D)
-x.grid=seq(from=xlims[1],to=xlims[2])
-preds=predict(fit1,newdata=list(D=x.grid),se=TRUE)
-se.bands=cbind(preds$fit+2*preds$se.fit,preds$fit-2*preds$se.fit)
-par(mar = c(4, 5.2, 2, 2), mgp = c(3, 1, 0))
-plot(D,CW,xlim=xlims, col="darkgrey",xlab="胸径(cm)",ylab="冠幅(m)", cex.lab = 2.5, cex.axis = 2.5)
-lines(x.grid,preds$fit,lwd=3,col="blue")
-matlines(x.grid,se.bands,lwd=2,col="blue",lty=2)
-dev.off()
+library(nlme)
+library(car)
+#例7.1数据加载
+data <- read.csv("data-{sample}-8-1.CSV",sep = ",", header = TRUE)
+data$Age <- (-1/data$Age + 1/20)
+data$Height<-log(data$Height)
+data$Type <- as.factor(data$Type)
+data$Plot <- as.factor(data$Plot)
 
 
-# 三阶多项式
-pdf("多项式3阶.pdf", height = 6, width = 8, family = "GB1")
-fit1=lm(CW~poly(D,3), data=larch)
-summary(fit1)
-# ,raw=T
-xlims=range(D)
-x.grid=seq(from=xlims[1],to=xlims[2])
-preds=predict(fit1,newdata=list(D=x.grid),se=TRUE)
-se.bands=cbind(preds$fit+2*preds$se.fit,preds$fit-2*preds$se.fit)
-par(mar = c(4, 5.2, 2, 2), mgp = c(3, 1, 0))
-plot(D,CW,xlim=xlims, col="darkgrey",xlab="胸径(cm)",ylab="冠幅(m)", cex.lab = 2.5, cex.axis = 2.5)
-lines(x.grid,preds$fit,lwd=3,col="blue")
-matlines(x.grid,se.bands,lwd=2,col="blue",lty=2)
-dev.off()
+#模型构建
+model.type <- lme(Height ~ Age, random = ~1 | Type, data = data) 
+model.type
 
 
-# 五阶多项式
-pdf("多项式5阶.pdf", height = 6, width = 8, family = "GB1")
-fit1=lm(CW~poly(D,5), data=larch)
-summary(fit1)
-# ,raw=T
-xlims=range(D)
-x.grid=seq(from=xlims[1],to=xlims[2])
-preds=predict(fit1,newdata=list(D=x.grid),se=TRUE)
-se.bands=cbind(preds$fit+2*preds$se.fit,preds$fit-2*preds$se.fit)
-par(mar = c(4, 5.2, 2, 2), mgp = c(3, 1, 0))
-plot(D,CW,xlim=xlims, col="darkgrey",xlab="胸径(cm)",ylab="冠幅(m)", cex.lab = 2.5, cex.axis = 2.5)
-lines(x.grid,preds$fit,lwd=3,col="blue")
-matlines(x.grid,se.bands,lwd=2,col="blue",lty=2)
-dev.off()
+model.plot <- lme(Height ~ Age, random = ~1 | Type / Plot, data = data)
 
-# y = x^2 + x^3
-model.i <- lm(CW ~ I(D ^ 2) + I(D ^ 3), data = larch)
+#信息提取
+summary(model.plot)
+fixef(model.plot)
+vcov(model.plot)
+ranef(model.plot)
+VarCorr(model.plot)
+AIC(model.plot)
+BIC(model.plot)
 
-########## 2.回归样条模型 ##################
-model.bs <- lm(CW ~ bs(D, df = 6), data = larch)
-summary(model.bs)
+#模型预测
+predict(model.plot)
+fitted(model.plot)
+resid(model.plot)
+coef(model.plot)
 
-########## 3.自然样条模型 ##################
-model.ns <- lm(CW ~ ns(D, df = 4), data = larch)
-summary(model.ns)
-print( attr( ns(D, df = 4), "knots") )
+#假设检验
+anova(model.plot)
+model.lm <- lm(Height ~ Age,data=data)
+AIC(model.lm)
+BIC(model.lm)
 
-########## 4.光滑样条模型 #################
-model.ss = smooth.spline(D, CW, cv = TRUE)
-print(model.ss)
+model.plot<- lme(Height ~ Age, random = ~1 | Type / Plot, data = data)
+AIC(model.plot)
+BIC(model.plot)
 
-########## 5.局部回归 ####################
-model.lo1 = loess(CW ~ D, span = 0.1, data = larch)
-model.lo5 = loess(CW ~ D, span = 0.5, data = larch)
-summary(model.lo5)
+#随机效应假设检验
+model.type <- lme(Height ~ Age, random = ~1 | Type, data = data)
+model.plot <- lme(Height ~ Age, random = ~1 | Type / Plot, data = data)
+lr_test <- anova(model.type, model.plot)
+print(lr_test)
+
+#置信区间
+intervals(model.plot, which="fixed")
+intervals(model.plot, which="var-cov")
+intervals(model.plot, which="var-cov")$reStruct
+
+#模型诊断
+model.plot <- lme(Height ~ Age, random = ~1 | Type / Plot, data = data)
+plot(model.plot)
+qqnorm(model.plot,~resid(.))
+qqPlot(model.plot$residuals,id=FALSE)
+
+
+#设置协方差结构G
+model.plot <- lme(Height ~ Age, random = ~1 | Type / Plot, data = data)
+VarCorr(model.plot)
+
+
+model.plot.pdSymm <- lme(Height ~ Age, random =list(Type = pdSymm(~1), Plot = pdSymm(~1)), data = data)
+VarCorr(model.plot.pdSymm)
+
+
+model.plot.pdDiag <- lme(Height ~ Age, random = list(Type = pdDiag(~1), Plot = pdDiag(~1)), data = data)
+VarCorr(model.plot.pdDiag)
+
+
+model.age <- lme(Height ~ Age,random = list(Type = pdDiag(~Age)),data=data)
+VarCorr(model.age)
+getVarCov(model.age, type = "conditional", individuals = "1")
+          
+model.age.pdSymm <- lme(Height ~ Age, random = list(Type = pdSymm(~Age)), data = data)          
+VarCorr(model.age.pdSymm)
+getVarCov(model.age.pdSymm, type = "conditional", individuals = "1")
+
+
+model.age.pdDiag <- lme(Height ~ Age, random = list(Type = pdDiag(~Age)), data = data)
+VarCorr(model.age.pdDiag)
+getVarCov(model.age.pdDiag, type = "conditional", individuals = "1")
+
+#设置方差协方差结构R
+model.plot <- lme(Height ~ Age, random = ~1 | Type / Plot, data = data)
+VarCorr(model.plot)
+coef(model.plot)
+
+model.plot.corCompSymm <- lme(Height ~ Age, random = ~1 | Type / Plot, correlation = corCompSymm(form = ~1 | Type / Plot), data = data)
+VarCorr(model.plot.corCompSymm)
+coef(model.plot.corCompSymm)
+
+model.plot.corAR1 <- lme(Height ~ Age, random = ~1 | Type / Plot, correlation = corAR1(form = ~1 | Type / Plot), data=data)
+VarCorr(model.plot.corAR1)
+coef(model.plot.corAR1)
+
+
+
+
+
+

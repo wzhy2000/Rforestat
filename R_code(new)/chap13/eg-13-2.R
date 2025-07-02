@@ -1,65 +1,47 @@
-data(iris)
-set.seed(123)
+# 加载并处理数据
+library(rattle)
+library(e1071)
+data(wine)
+X <- wine[, 2:ncol(wine)]
+y <- wine[, 1]
+set.seed(6)
+train_index <- sample(1:nrow(wine), 0.7 * nrow(wine))
+X_train <- X[train_index, ]
+y_train <- y[train_index]
+X_test <- X[-train_index, ]
+y_test <- y[-train_index]
 
-# 划分训练集和测试集
-idx.train <- createDataPartition(iris$Species, p = 0.8, list = FALSE)
-iris.train <- iris[idx.train, ]
-iris.test <- iris[-idx.train, ]
+# 构建朴素贝叶斯模型并训练
+model <- naiveBayes(X_train, as.factor(y_train))
+print(model)
 
-############### 1.knn模型 ##########
+
+# 预测与评估模型
+y_pred <- predict(model, X_test)
+accuracy <- mean(y_pred == y_test)
+cat("Model Accuracy:", round(accuracy, 2), "\n")
+
+# 计算混淆矩阵
 library(caret)
-# 设置训练控制参数，使用 10 折交叉验证
-trControl <- trainControl(method = "cv", number = 10)
+cm <- confusionMatrix(as.factor(y_pred), as.factor(y_test))
+print(cm)
 
-# 定义参数调优网格，设置 K 的取值范围
-tuneGrid <- expand.grid(k = 1:10)
-
-# 训练 KNN 模型
-modeli.knn <- train(
-  Species ~ .,
-  data = iris.train,
-  method = "knn",
-  trControl = trControl,
-  tuneGrid = tuneGrid
-)
-
-# 对测试集进行预测
-y.pred <- predict(modeli.knn, newdata = iris.test)
-
-# 生成混淆矩阵，评估模型性能
-mat.conf <- confusionMatrix(y.pred, iris.test$Species)
-print(mat.conf)
-
-######### 2. 构建随机森林模型 ############
-library(randomForest)
-modeli.rf <- randomForest(Species ~ ., data=iris, importance=TRUE, proximity=TRUE)
-print(modeli.rf)
-y.pred <- predict(modeli.rf, newdata = iris.test)
-
-
-######### 3.梯度提升树模型 #############
-set.seed(123)
-library(gbm)
-modeli.gbm <- gbm(formula = Species ~ ., data = iris, distribution = "gaussian")
-best.iter <- gbm.perf(modeli.gbm, method = "OOB")
-print(modeli.gbm)
-print(best.iter)
-
-########### 4.多变量自适应回归样条 #############
-set.seed(123)
-library(earth)
-modeli.earth <- earth(Species ~ ., data = iris)
-summary(modeli.earth)
-predictions <- predict(modeli.earth, type = "class")
-
-########### 5.支持向量模型 #############
-set.seed(123)
-library(gbm)
-modeli.svm <- svm(Species ~ ., data = iris, kernel = "linear")
-summary(modeli.svm)
-
-########### 6.神经网络模型 ###############
-library(neuralnet)
-modeli.nn <- neuralnet(Species ~ . , data = iris, hidden = c(5, 3), linear.output = FALSE)
-plot(modeli.nn)
-
+# 绘制混淆矩阵
+library(ggplot2)
+library(reshape2)
+cm <- matrix(c(18, 0, 0,
+               1, 19, 0,
+               0, 1, 15), 
+             nrow = 3, byrow = TRUE,
+             dimnames = list(Prediction = c("1", "2", "3"),
+                             Reference = c("1", "2", "3")))
+cm_melted <- melt(cm)
+ggplot(data = cm_melted, aes(x = Reference, y = Prediction, fill = value)) +
+  geom_tile() +
+  geom_text(aes(label = value), color = "black", size = 6) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Confusion Matrix",
+       x = "Reference",
+       y = "Prediction",
+       fill = "Count") +
+  theme_minimal()

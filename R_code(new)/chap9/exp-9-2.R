@@ -1,42 +1,52 @@
-library("forestat")
-library(nlme)
+data.train <- read.csv("la_m.csv")
+data.test <- read.csv("la_v.csv")
+data.total <- read.csv("la_tot.csv")
+
+summary(data.train)
+summary(data.test)
+summary(data.total) 
+
+library(mgcv)
+library(forestat)
+library(ggplot2)
+library(pdp)
+library(gridExtra)
+model.gamh <- gam(log(h) ~ s(hdo, k = 30, bs = "cr") + s(d, k = 40, bs = "cr")   
+                  + ti(hdo, d, k = 34, bs = "cr"), data = data.train)
+
+summary(model.gamh)
+y.pred <- exp(fitted(model.gamh))  
+FittingEvaluationIndex(y.pred, data.train$h)
+
+y.pred.log <- predict(model.gamh, newdata = data.test, type = "response")
+FittingEvaluationIndex(exp(y.pred.log), data.test$h)
+
+y.pred <- exp(predict(model.gamh, newdata = data.test))
+df.pred <- data.frame(y.pred, y.pred - data.test$h)  
+
+pdf("8.7a.pdf", width = 8, height = 6, family = "GB1")
+ggplot(df.pred, aes(y.pred, y.pred - data.test$h)) +  
+        geom_point() +
+        scale_x_continuous(name = '树高预测值(m)', limits = c(0, 20)) +  
+        geom_point(color = '#999999') +
+        theme(panel.background = element_rect(fill = 'white'),  
+              axis.line = element_line(colour = 'black'), 
+              axis.ticks.length = unit(-10, "pt"), 
+              axis.text.y = element_text(size = 24), 
+              axis.text.x = element_text(size = 24),   
+              text = element_text(size = 24)) +
+        scale_y_continuous(name = '残差(m)', limits = c(-10, 10)) +     
+        geom_hline(aes(yintercept = 0), size = 1.3)
+dev.off()
 
 
-# 其中AGB是Stem，Branch，Foliage和Fruit之和
-data(picea)
-picea$AGB <- picea$STEM + picea$BRANCH + picea$FOLIAGE + picea$FRUIT
-attach(picea)
+y.part <- partial(model.gamh, pred.var = c("d", "hdo"))
+colspace <- colorRampPalette(c("white", "gray50", "black"))
+plot.part <- plotPartial(y.part, contour = TRUE, col.regions = colspace, 
+                         xlab = list("胸径(cm)", cex = 2), 
+                         ylab = list("优势木平均高(m)", cex = 2), 
+                         scales = list(cex = 2))
 
-set.seed(123)
-datapartde <-sample(2, nrow(picea), replace = TRUE, prob = c(0.7,0.3))
-train.data <- picea[datapartde == 1, ]
-test.data <- picea[datapartde == 2, ]
-
-dim(train.data)
-dim(test.data)
-
-
-# 幂函数（异速生长模型）
-model.allometry <- nls(AGB ~ a * D0^b + c * H0^d, start = c(a = 1, b = 1, c = 1, d = 1), data = train.data)
-summary(model.allometry)
-cat(AIC(model.allometry), BIC(model.allometry))
-FittingEvaluationIndex(predict(model.allometry, newdata = train.data), train.data$AGB)
-FittingEvaluationIndex(predict(model.allometry, newdata = test.data), test.data$AGB)
-
-
-
-# 指数函数
-model.exp <- nls(AGB ~ a * exp(b * D0 + c * H0), start = c(a = 1, b = 0.1, c = 0.1), data = train.data)
-summary(model.exp)
-cat(AIC(model.exp), BIC(model.exp))
-FittingEvaluationIndex(predict(model.exp, newdata = train.data), train.data$AGB)
-FittingEvaluationIndex(predict(model.exp, newdata = test.data), test.data$AGB)
-
-# Richard
-model.richard <- nls(AGB ~ a * (1 - exp(-b * D0 + c * H0)), start = c(a = 1, b = -0.1, c = 0.1), 
-            data = train.data)
-summary(model.richard)
-cat(AIC(model.richard), BIC(model.richard))
-FittingEvaluationIndex(predict(model.richard, newdata = train.data), train.data$AGB)
-FittingEvaluationIndex(predict(model.richard, newdata = test.data), test.data$AGB)
-
+pdf("8.7b.pdf", width = 8, height = 6, family = "GB1")
+grid.arrange(plot.part, ncol = 1)
+dev.off()
