@@ -1,13 +1,18 @@
+library(dplyr)
 library(tidyr)
-data <- read.csv("data-{eg4-10}.csv")
-tree.long <- data %>%
+tree_wide <- read.csv("../../data/eg4_10.csv", stringsAsFactors = FALSE)
+tree.long <- tree_wide %>%
   pivot_longer(
     cols = c(Height0, Height.after.3.years, Height.after.6.years),
     names_to = "time",
     values_to = "Height"
+  ) %>%
+  mutate(
+    plot = factor(plot),
+    sampleid = factor(sampleid),
+    time = factor(time)
   )
-tree.long$plot <- as.factor(tree.long$plot)
-tree.long$sampleid <- as.factor(tree.long$sampleid)
-tree.long$time <- as.factor(tree.long$time)
-model <- aov(Height ~ plot * time + Error(sampleid/(plot * time)), data = tree.long)
+
+model <- aov(Height ~ plot * time + Error(sampleid/(time)), data = tree.long)
 summary(model)
+

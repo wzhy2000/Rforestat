@@ -10,5 +10,5 @@ median_function <- function(data, indices) {
 }
 
 set.seed(123)  
-boot_result <- boot(tree_heights, statistic = median_function, R = 1000)
-boot.ci(boot_result, type = "perc", conf = 0.95)
+boot_result <- boot(tree_heights, statistic = median_function, R = 5000)
+boot.ci(boot_result, type = c("perc", "bca"), conf = 0.95)

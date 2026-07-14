@@ -13,20 +13,20 @@ The `forestat` package accompanies the book *Forest Statistics Modeling with R*.
 
 ---
 
-- ## 📂 数据集简介 | Included Datasets
+## 📂 数据集简介 | Included Datasets
 
-  该软件包包含以下林业与遥感相关数据集：
-  
-   This package includes the following forest-related and remote sensing datasets:
-  
-  - `data(larch)`：冬奥核心区 **华北落叶松** 数据集
-     *Larch dataset from the Winter Olympics core area*
-  - `data(birch)`：冬奥核心区 **白桦** 数据集
-     *Birch dataset from the Winter Olympics core area*
-  - `data(picea)`：**雷达反演** 数据集
-     *Radar-derived dataset for forest structure*
-  - `data(forestData)`：**森林碳汇** 数据集
-     *Forest carbon sink estimation dataset*
+该软件包包含以下林业与遥感相关数据集：
+
+ This package includes the following forest-related and remote sensing datasets:
+
+- `data(larch)`：冬奥核心区 **华北落叶松** 数据集
+   *Larch dataset from the Winter Olympics core area*
+- `data(birch)`：冬奥核心区 **白桦** 数据集
+   *Birch dataset from the Winter Olympics core area*
+- `data(picea)`：**雷达反演** 数据集
+   *Radar-derived dataset for forest structure*
+- `data(forestData)`：**森林碳汇** 数据集
+   *Forest carbon sink estimation dataset*
 
 ---
 

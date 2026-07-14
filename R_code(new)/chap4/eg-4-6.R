@@ -15,4 +15,4 @@ t.test(plot28$D, plot71$D, alternative = "less")
 var.test(plot28$D, plot71$D)
 
 # 问题五
-t.test(plot28$D, plot71$D, paired = TRUE)
+# t.test(plot28$D, plot71$D, paired = TRUE)

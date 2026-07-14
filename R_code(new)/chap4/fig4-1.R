@@ -57,18 +57,12 @@ p1b <- ggplot(df, aes(x = x, y = y)) +
            x = x_alpha + 2.7, y = 0.03,   # 设置文字的位置，略偏离箭头终点
            label = expression(alpha),    # 使用数学符号 \(\alpha\)
            size = 10, color = "black") + 
-  annotate("segment", x = x_alpha, xend = x_alpha, y = 0, yend = dnorm(x_alpha, mean = mu, sd = sigma),
-           color = "red", size = 1) + 
+  geom_vline(xintercept = x_alpha, linetype = "dashed", color = "red", linewidth = 1) +
+  annotate("text", x = x_alpha + 0.5, y = 0.22,
+           label = "x[1-alpha]", parse = TRUE, size = 8, color = "black", hjust = 0) +
   scale_y_continuous(limits = c(0, 0.25), expand = c(0, 0)) +   # 设置y轴范围
   scale_x_continuous(
-    breaks = c(seq(-10, 15, by = 5), x_alpha),
-    labels = parse(text = paste0(sapply(c(seq(-10, 15, by = 5), x_alpha), function(val) {
-      if(abs(val - x_alpha) < 0.0001) {
-        "x[alpha]"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
+    breaks = seq(-10, 15, by = 5)
   ) + 
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
@@ -130,20 +124,12 @@ p2b <-  ggplot(df, aes(x = x, y = y)) +
            x = x_a + 1.2, y = 0.11,   # 设置文字的位置，略偏离箭头终点
            label = expression(alpha),    # 使用数学符号 \(\alpha\)
            size = 10, color = "black") + 
-  annotate("segment", x = x_a, xend = x_a, y = 0, yend = dnorm(x_a, mean = 0, sd = 1),
-           color = "red", size = 1) + # 上alpha分位数线
+  geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
+  annotate("text", x = x_a + 0.35, y = 0.52,
+           label = "z[1-alpha]", parse = TRUE, size = 8, color = "black", hjust = 0) +
   coord_cartesian(ylim = c(0, 0.6)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) + 
-  scale_x_continuous(
-    breaks = c(seq(-4, 4, by = 2), x_a),
-    labels = parse(text = paste0(sapply(c(seq(-4, 4, by = 2), x_a), function(val) {
-      if(abs(val - x_a) < 0.0001) {
-        "z[alpha]"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
-  ) +
+  scale_x_continuous(breaks = seq(-4, 4, by = 2)) +
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
@@ -198,8 +184,9 @@ p3b <- ggplot(data, aes(x = x, y = y)) +
   labs(x = "t", y = "概率密度") +
   ggtitle("t分布") + 
   geom_area(data = subset(data, x >= x_a), aes(x = x, y = y), fill = "black", alpha = 0.3) +
-  annotate("segment", x = x_a, xend = x_a, y = 0, yend = dt(x_a, df = 5),
-           color = "red", size = 1) + # 上alpha分位数线
+  geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
+  annotate("text", x = x_a + 0.35, y = 0.36,
+           label = "t[1-alpha]", parse = TRUE, size = 8, color = "black", hjust = 0) +
   annotate("segment", x = x_a + 1, xend = x_a + 2, y = dt(x_a + 1, df = 5) - 0.005, yend = 0.05,  # 添加指向阴影部分的箭头
            color = "black", arrow = arrow(angle = 15, length = unit(0.2, "inches"), type = "closed")) +
   annotate("text",
@@ -208,16 +195,7 @@ p3b <- ggplot(data, aes(x = x, y = y)) +
            size = 10, color = "black") +
   coord_cartesian(ylim = c(0, 0.4)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) +
-  scale_x_continuous(
-    breaks = c(seq(-6, 6, by = 2), x_a),
-    labels = parse(text = paste0(sapply(c(seq(-6, 6, by = 2), x_a), function(val) {
-      if(abs(val - x_a) < 0.0001) {
-        "t[alpha]"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
-  ) +
+  scale_x_continuous(breaks = seq(-6, 6, by = 3)) +
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
@@ -231,73 +209,56 @@ p3b
 ################################ 4. 泊松分布 ######################### 
 library(ggplot2)
 # 创建数据
-x <- 0:10
-data <- data.frame(
-  x = rep(x, 3),  # 重复 x 值三次用于绘制不同的 λ
-  y = c(dpois(x, lambda = 1), dpois(x, lambda = 2), dpois(x, lambda = 3)),  # 计算三条泊松分布的 y 值
-  lambda = factor(rep(c(1, 2, 3), each = length(x)))  # 用于区分三条曲线的 λ 值
-)
+x <- 0:14
+lambda <- 4
+data <- data.frame(x = x, y = dpois(x, lambda = lambda))
 
 # 绘制泊松分布图
 # pdf("4.2泊松分布.pdf",width = 8, height = 4, family = "GB1")
-p4a <- ggplot(data, aes(x = x, y = y, linetype = lambda, group = lambda)) +
-  geom_line(size = 1) +  # 绘制曲线
-  geom_point(size = 1) +  # 添加数据点
+p4a <- ggplot(data, aes(x = x, y = y)) +
+  geom_segment(aes(xend = x, y = 0, yend = y), color = "#2C7FB8", size = 1) +
+  geom_point(color = "#2C7FB8", size = 3) +
   theme_classic() +
-  labs(x = "x", y = "概率密度", linetype = "λ") +  # 添加图例标题
-  ggtitle("泊松分布") +
-  scale_linetype_manual(values = c("solid", "dashed", "dotted"))  + # 自定义线型类型
-  coord_cartesian(ylim = c(0, 0.4)) +   # 设置y轴范围
+  labs(x = "x", y = "概率密度") +
+  ggtitle("泊松分布（λ = 4）") +
+  coord_cartesian(ylim = c(0, 0.2)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) +
+  scale_x_continuous(breaks = seq(0, 14, by = 2)) +
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
         legend.title = element_text(size = 28), # 设置图例标题字体大小
         legend.text = element_text(size = 24),   # 设置图例文本字体大小
-        legend.position = c(0.8, 0.8),          # 将图例移到图内，右上角 (80% x, 80% y)
   )
 p4a
 # dev.off()
 
 
 a <- 0.95
-x_a <- qpois(a, lambda = 2)
-y_a <- dpois(x_a, lambda = 2)
-x <- 0:10
-df <- data.frame(x = x, y = dpois(x, lambda = 2), lambda = factor(rep(2, each = length(x))))
+x_a <- qpois(a, lambda = lambda)
+y_a <- dpois(x_a, lambda = lambda)
+df <- data.frame(x = x, y = dpois(x, lambda = lambda))
 p4b <- ggplot(df, aes(x = x, y = y)) +
-  geom_line(size = 1) +  # 绘制曲线
-  geom_point(size = 1) +  # 添加数据点
+  geom_segment(aes(xend = x, y = 0, yend = y), color = "#2C7FB8", size = 1) +
+  geom_point(color = "#2C7FB8", size = 3) +
   theme_classic() +
-  labs(x = "x", y = "概率密度") +  # 添加图例标题
-  geom_area(data = subset(df, x >= x_a), aes(x = x, y = y), fill = "black", alpha = 0.3) +
-  ggtitle("泊松分布") + 
-  annotate("segment", x = x_a, xend = x_a, y = 0, yend = dpois(x_a, lambda = 2),
-           color = "red", size = 1) + # 上alpha分位数线
-  annotate("segment", x = x_a + 0.5, xend = x_a + 1.3, y = dpois(x_a, lambda = 2) - 0.02, yend = 0.05,  # 添加指向阴影部分的箭头
-           color = "black", arrow = arrow(angle = 15, length = unit(0.2, "inches"), type = "closed")) + 
+  labs(x = "x", y = "概率密度") +
+  ggtitle("泊松分布（λ = 4）") + 
+  geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
   annotate("text", 
-           x = x_a + 1.55, y = 0.05,   # 设置文字的位置，略偏离箭头终点
-           label = expression(alpha),    # 使用数学符号 \(\alpha\)
-           size = 10, color = "black") + 
-  coord_cartesian(ylim = c(0, 0.35)) +   # 设置y轴范围
+           x = x_a + 0.25, y = 0.18,
+           label = "q[1-alpha]",
+           parse = TRUE, size = 8, color = "black", hjust = 0) + 
+  coord_cartesian(ylim = c(0, 0.2)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) + 
-  scale_x_continuous(
-    breaks = c(seq(0, 10, by = 2), x_a),
-    labels = parse(text = paste0(sapply(c(seq(0, 10, by = 2), x_a), function(val) {
-      if(abs(val - x_a) < 0.0001) {
-        "lambda[alpha]"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
-  )  +
+  scale_x_continuous(breaks = seq(0, 14, by = 2)) +
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
         legend.title = element_text(size = 28), # 设置图例标题字体大小
         legend.text = element_text(size = 24),   # 设置图例文本字体大小
-        legend.position = c(0.8, 0.8),          # 将图例移到图内，右上角 (80% x, 80% y)
+        axis.text.y.right = element_blank(),
+        axis.ticks.y.right = element_blank(),
   )
 p4b
 # dev.off()
@@ -347,8 +308,9 @@ p5b <- ggplot(data, aes(x = x, y = y)) +
   labs(x = "x", y = "概率密度") + 
   ggtitle("卡方分布") + 
   geom_area(data = subset(data, x >= x_a), aes(x = x, y = y), fill = "black", alpha = 0.3) +
-  annotate("segment", x = x_a, xend = x_a, y = 0, yend = dchisq(x_a, df = 5),
-           color = "red", size = 1) + # 上alpha分位数线
+  geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
+  annotate("text", x = x_a + 0.35, y = 0.18,
+           label = "chi[1-alpha]^2", parse = TRUE, size = 8, color = "black", hjust = 0) +
   annotate("segment", x = x_a + 1, xend = x_a + 2, y = dchisq(x_a + 1, df = 5) - 0.01, yend = 0.05,  # 添加指向阴影部分的箭头
            color = "black", arrow = arrow(angle = 15, length = unit(0.2, "inches"), type = "closed")) +
   annotate("text",
@@ -357,16 +319,7 @@ p5b <- ggplot(data, aes(x = x, y = y)) +
            size = 10, color = "black") +
   coord_cartesian(ylim = c(0, 0.2)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) +
-  scale_x_continuous(
-    breaks = c(seq(0, 15, by = 5), x_a),
-    labels = parse(text = paste0(sapply(c(seq(0, 15, by = 5), x_a), function(val) {
-      if(abs(val - x_a) < 0.0001) {
-        "chi[alpha]^2"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
-  ) +
+  scale_x_continuous(breaks = seq(0, 15, by = 5)) +
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
@@ -427,8 +380,9 @@ p6b <- ggplot(data, aes(x = x, y = y)) +
   labs(x = "x", y = "概率密度") + 
   ggtitle("F分布") + 
   geom_area(data = subset(data, x >= x_a), aes(x = x, y = y), fill = "black", alpha = 0.3) +
-  annotate("segment", x = x_a, xend = x_a, y = 0, yend = df(x_a, df1 = 5, df2 = 20),
-           color = "red", size = 1) + # 上alpha分位数线
+  geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
+  annotate("text", x = x_a + 0.15, y = 0.68,
+           label = "F[1-alpha]", parse = TRUE, size = 8, color = "black", hjust = 0) +
   annotate("segment", x = 3, xend = 3.3, y = df(3, df1 = 5, df2 = 20) - 0.005, yend = 0.1,  # 添加指向阴影部分的箭头
            color = "black", arrow = arrow(angle = 15, length = unit(0.2, "inches"), type = "closed")) +
   annotate("text",
@@ -437,16 +391,7 @@ p6b <- ggplot(data, aes(x = x, y = y)) +
            size = 10, color = "black") +
   coord_cartesian(ylim = c(0, 0.75)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) +
-  scale_x_continuous(
-    breaks = c(seq(0, 5, by = 1), x_a),
-    labels = parse(text = paste0(sapply(c(seq(0, 5, by = 1), x_a), function(val) {
-      if(abs(val - x_a) < 0.0001) {
-        "F[alpha]"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
-  ) + 
+  scale_x_continuous(breaks = seq(0, 5, by = 1)) + 
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
@@ -499,8 +444,9 @@ p7b <- ggplot(data, aes(x = x, y = y)) +
   labs(x = "x", y = "概率密度") + 
   ggtitle("Weibull分布") + 
   geom_area(data = subset(data, x >= x_a - 0.01), aes(x = x, y = y), fill = "black", alpha = 0.3) + # 这里 - 0.01是因为图像不知道什么原因没有对上
-  annotate("segment", x = x_a, xend = x_a, y = 0, yend = dweibull(x_a, shape = 2, scale = 1),
-           color = "red", size = 1) + # 上alpha分位数线
+  geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
+  annotate("text", x = x_a + 0.05, y = 0.9,
+           label = "W[1-alpha]", parse = TRUE, size = 8, color = "black", hjust = 0) +
   annotate("segment", x = x_a + 0.05, xend = x_a + 0.2, y = dweibull(x_a, shape = 2, scale = 1) - 0.07, yend = 0.2,  # 添加指向阴影部分的箭头
            color = "black", arrow = arrow(angle = 15, length = unit(0.2, "inches"), type = "closed")) +
   annotate("text",
@@ -509,16 +455,7 @@ p7b <- ggplot(data, aes(x = x, y = y)) +
            size = 10, color = "black") +
   coord_cartesian(ylim = c(0, 1)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) + 
-  scale_x_continuous(
-    breaks = c(seq(0, 2.5, by = 0.5), x_a),
-    labels = parse(text = paste0(sapply(c(seq(0, 2.5, by = 0.5), x_a), function(val) {
-      if(abs(val - x_a) < 0.0001) {
-        "W[alpha]"  # 修改为卡方分布的表达式
-      } else {
-        val
-      }
-    })))
-  ) +
+  scale_x_continuous(breaks = seq(0, 2.5, by = 0.5)) +
   theme(plot.title = element_text(size = 24),   # 设置标题字体大小
         axis.title = element_text(size = 20),   # 设置坐标轴标签字体大小
         axis.text = element_text(size = 20),    # 设置坐标轴刻度字体大小
@@ -527,6 +464,6 @@ p7b <- ggplot(data, aes(x = x, y = y)) +
   )
 p7b
 
-pdf("分布图(7).pdf", width = 16, height = 22)
-grid.arrange(p1a, p1b, p2a, p2b, p3a, p3b, p4a, p4b, p5a, p5b, p6a, p6b, p7a, p7b, ncol = 2, nrow = 7)
+cairo_pdf("分布图(6)new.pdf", width = 16, height = 22, family = "Microsoft YaHei")
+grid.arrange(p1a, p1b, p2a, p2b, p3a, p3b, p4a, p4b, p5a, p5b, p6a, p6b, ncol = 2, nrow = 6)
 dev.off()

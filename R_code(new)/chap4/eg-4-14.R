@@ -1,4 +1,4 @@
-data <- read.csv("data-{eg4-10}.csv")
+data <- read.csv("../../data/eg4_10.csv", stringsAsFactors = FALSE)
 attach(data)
 model1 <- aov(Height0 ~ plot)
 summary(model1)

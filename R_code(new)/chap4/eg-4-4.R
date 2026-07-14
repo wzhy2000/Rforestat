@@ -1,4 +1,7 @@
-sample.var <- 0.0009; sample.size <- 4; alpha <- 0.05
+data <- c(12.6, 13.4, 12.8, 13.2)
+sample.var <- var(data)
+sample.size <- length(data)
+alpha <- 0.05
 df <- sample.size - 1
 chi2.lower <- qchisq(alpha / 2, df)
 chi2.upper <- qchisq(1 - alpha / 2, df)
