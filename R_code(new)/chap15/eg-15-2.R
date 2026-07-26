@@ -1,364 +1,356 @@
-library(dplyr)
 library(caret)
 library(tidyverse)
-data <- read.csv("ASTER.csv")
-str(data)
 
-################ 1. 特征预处理  #################
+############## 1. 数据加载与划分 ###################
+
+cls.data <- read.csv("ASTER.csv")
+str(cls.data)
+cls.data$class <- factor(trimws(cls.data$class))
+
+set.seed(123)
+cls.train.idx <- createDataPartition(cls.data$class, p = 0.8, list = FALSE)
+cls.train <- cls.data[cls.train.idx, ]
+cls.test <- cls.data[-cls.train.idx, ]
+
+cat("训练集样本数：", nrow(cls.train), "\n")
+cat("测试集样本数：", nrow(cls.test), "\n")
+cat("总样本数：", nrow(cls.data), "\n")
+
+############## 2. 样本预处理 #################
+
+# （1）自助法Bootstrap演示
+set.seed(123)
+cls.bootstrap.samples <- createResample(cls.train$class, times = 3)
+str(cls.bootstrap.samples)
+
+cls.boot.train1 <- cls.train[cls.bootstrap.samples[[1]], ]
+nrow(cls.boot.train1)
+
+cls.oob.index <- setdiff(
+  seq_len(nrow(cls.train)),
+  unique(cls.bootstrap.samples[[1]])
+)
+cls.boot.oob1 <- cls.train[cls.oob.index, ]
+nrow(cls.boot.oob1)
+
+# 以下孤立森林和LOF代码仅用于知识点演示，不参与后续模型训练
+# （2）孤立森林
+library(isotree)
+set.seed(123)
+cls.sample.predictors <- setdiff(names(cls.train), "class")
+cls.train.iso <- cls.train[, cls.sample.predictors, drop = FALSE]
+cls.iso.model <- isolation.forest(cls.train.iso, ntrees = 100)
+cls.train.iso.scores <- predict(cls.iso.model, cls.train.iso)
+cls.train.iso.outliers <- which(cls.train.iso.scores > 0.6)
+length(cls.train.iso.outliers)
+
+# （3）局部离群因子LOF
+library(Rlof)
+cls.x.scaled <- scale(cls.train[, cls.sample.predictors])
+cls.lof.scores <- lof(cls.x.scaled, k = 20, cores = 1)
+cls.lof.outliers <- which(cls.lof.scores > 1.8)
+length(cls.lof.outliers)
+
+# （4）类别不平衡处理演示
+cls.y <- cls.train$class
+table(cls.y)
+
+set.seed(123)
+cls.upsampled <- upSample(
+  x = cls.train[, cls.sample.predictors, drop = FALSE],
+  y = cls.y
+)
+table(cls.upsampled$Class)
+
+set.seed(123)
+cls.downsampled <- downSample(
+  x = cls.train[, cls.sample.predictors, drop = FALSE],
+  y = cls.y
+)
+table(cls.downsampled$Class)
+
+############## 3. 特征预处理 #################
 
 # 1. 缺失值处理
-sapply(data, function(x) sum(is.na(x)))
+sapply(cls.train, function(x) sum(is.na(x)))
+sapply(cls.test, function(x) sum(is.na(x)))
 
-data <- data %>%
-  drop_na()
+cls.train <- cls.train %>% drop_na()
+cls.test <- cls.test %>% drop_na()
 
 # 2. 数值型特征预处理
+# （1）Z-score异常值筛查演示
+cls.b1.mean <- mean(cls.train$b1, na.rm = TRUE)
+cls.b1.sd <- sd(cls.train$b1, na.rm = TRUE)
+cls.train.b1.z <- (cls.train$b1 - cls.b1.mean) / cls.b1.sd
+cls.test.b1.z <- (cls.test$b1 - cls.b1.mean) / cls.b1.sd
 
-# 1.异常值 
-# IQR
-# Q1 <- quantile(data$b1, 0.25)
-# Q3 <- quantile(data$b1, 0.75)
-# IQR.value <- Q3 - Q1
-# lower.bound <- Q1 - 1.5 * IQR.value
-# upper.bound <- Q3 + 1.5 * IQR.value
-# outliers.IQR <- data$b1[data$b1 < lower.bound | data$b1 > upper.bound]
-# head(outliers.IQR)
-# data.no.outliers <- data[data$b1 >= lower.bound & data$b1 <= upper.bound, ]
+cls.b1.outliers <- cls.train$b1[abs(cls.train.b1.z) > 3]
+head(cls.b1.outliers)
 
-# (1) 异常值  z-score
-mean.b1 <- mean(data$b1, na.rm = TRUE)
-sd.b1 <- sd(data$b1, na.rm = TRUE)
-z.scores <- (data$b1 - mean.b1) / sd.b1
-outliers.zscore <- data$b1[abs(z.scores) > 3]
-head(outliers.zscore)
-data.no.outliers <- data[abs(z.scores) <= 3, ]
+cls.train.z.demo <- cls.train[
+  abs(cls.train.b1.z) <= 3,
+  ,
+  drop = FALSE
+]
 
+# （2）使用训练集参数进行中心化和标准化
+cls.b1.scaled <- scale(cls.train$b1, center = TRUE, scale = TRUE)
+cls.b1.center <- attr(cls.b1.scaled, "scaled:center")
+cls.b1.scale <- attr(cls.b1.scaled, "scaled:scale")
+cls.b1.test.scaled <- scale(
+  cls.test$b1,
+  center = cls.b1.center,
+  scale = cls.b1.scale
+)
+attributes(cls.b1.scaled)
 
-# (2) 中心化与标准化
-b1.scaled <- scale(data.no.outliers$b1, center = T, scale = T)
-attributes(b1.scaled)
-
-# (3) 偏度检验
+# （3）使用训练集估计Box-Cox参数
 library(e1071)
-skewness(data.no.outliers$b1)
+skewness(cls.train$b1)
 
-b1.boxcox <- BoxCoxTrans(data.no.outliers$b1)
-b1.boxcox
+cls.b1.boxcox <- BoxCoxTrans(cls.train$b1)
+cls.b1.boxcox
 
-b1.boxcoxed <- predict(b1.boxcox, as.numeric(data.no.outliers$b1))
-head(b1.boxcoxed)
-skewness(b1.boxcoxed)
-
-
-
+cls.b1.train.boxcoxed <- predict(cls.b1.boxcox, cls.train$b1)
+cls.b1.test.boxcoxed <- predict(cls.b1.boxcox, cls.test$b1)
+head(cls.b1.train.boxcoxed)
+skewness(cls.b1.train.boxcoxed)
 
 # 3. 分类变量编码
-data.no.outliers$class <- factor(data.no.outliers$class)
-
-
+cls.train$class <- factor(cls.train$class)
+cls.test$class <- factor(cls.test$class, levels = levels(cls.train$class))
 
 # 4. 特征选择
+cls.train.num <- cls.train[, setdiff(names(cls.train), "class"), drop = FALSE]
 
-# (1) 过滤法
-library(caret)
-data.num <- data[, -c(1)]
-nzv <- nearZeroVar(data.num, freqCut = 20, uniqueCut = 10, saveMetrics = TRUE)
-nzv
+# （1）过滤法
+cls.nzv <- nearZeroVar(
+  cls.train.num,
+  freqCut = 20,
+  uniqueCut = 10,
+  saveMetrics = TRUE
+)
+cls.nzv
 
-
-# (2) 共线性检验
-cor.matrix <- cor(data.num)
+# （2）基于训练集的共线性筛选
+cls.cor.matrix <- cor(cls.train.num)
 library(corrplot)
-# corrplot(cor.matrix, order = "hclust", tl.col = "black", is.corr = T)
-# pdf("ASTER 影像数据集特征之间相关性图.pdf", width = 10, height = 8)
-corrplot(cor.matrix, order = "hclust", method = "circle", type = "full", 
-         # addCoef.col = "red", # 设置相关系数数字的颜色
-         number.cex = 1,      # 设置数字大小
-         tl.cex = 1,        # 坐标轴标签的字体大小
-         tl.col = "black",     # 坐标轴标签的颜色
-         cl.cex = 1)        # 颜色图例字体大小
-# dev.off()
+corrplot(
+  cls.cor.matrix,
+  order = "hclust",
+  method = "circle",
+  type = "full",
+  number.cex = 1,
+  tl.cex = 1,
+  tl.col = "black",
+  cl.cex = 1
+)
 
-highCorr <- findCorrelation(cor.matrix, cutoff = 0.6)
-highCorr
-data <- data[, -(highCorr + 1)]
-colnames(data)
+cls.high.corr <- findCorrelation(cls.cor.matrix, cutoff = 0.6)
+cls.high.corr
+cls.removed.predictors <- names(cls.train.num)[cls.high.corr]
+cls.predictors <- setdiff(names(cls.train.num), cls.removed.predictors)
+
+cls.train <- cls.train[, c("class", cls.predictors), drop = FALSE]
+cls.test <- cls.test[, c("class", cls.predictors), drop = FALSE]
+colnames(cls.train)
 
 # 5. 特征降维与提取
 library(psych)
-selected.vars <- data[, -c(1)]
-KMO(selected.vars)
-psych::cortest.bartlett(selected.vars)
+KMO(cls.train[, cls.predictors])
+psych::cortest.bartlett(cls.train[, cls.predictors])
 
-pca.selected.vars <- prcomp(selected.vars, scale. = T, center = T)
-pca.selected.vars$x[1:5, 1:5]
-
-
-############### 2. 样本预处理    #####################
-# 1. 样本划分
-# （1）留出法（训练集与测试集）
-set.seed(123)
-train.idx <- createDataPartition(data$class, p = 0.8, list = FALSE)
-train <- data[train.idx, ]
-test <- data[-train.idx, ]
-cat("训练集样本数：", nrow(train), "\n")
-cat("测试集样本数：", nrow(test), "\n")
-cat("总样本数：", nrow(data), "\n")
-
-# （2）交叉验证（训练集 -> 训练集 + 验证集）
-cv.ctrl <- trainControl(method = "cv", number = 5)
-dummy.model <- train(
-  x = train,
-  y = as.factor(train$class),
-  method = "rpart",
-  trControl = cv.ctrl
+cls.pca <- prcomp(
+  cls.train[, cls.predictors],
+  scale. = TRUE,
+  center = TRUE
 )
-for (i in seq_along(dummy.model$control$index)) {
-  train.idx <- dummy.model$control$index[[i]]
-  valid.idx <- dummy.model$control$indexOut[[i]]
-  cat(sprintf("第 %d 折：训练集 = %d，验证集 = %d\n", 
-              i, length(train.idx), length(valid.idx)))
-}
+cls.train.pca <- predict(cls.pca, newdata = cls.train[, cls.predictors])
+cls.test.pca <- predict(cls.pca, newdata = cls.test[, cls.predictors])
+cls.train.pca[1:5, 1:5]
 
-cat("总样本数：", nrow(train), "\n")
+############### 4. 重采样设置 #####################
 
-
-# （3）自助法Bootstrap
+# （1）交叉验证索引
 set.seed(123)
-bootstrapSamples <- createResample(train$class, times = 3)
-str(bootstrapSamples)
+cls.cv.train.index <- createFolds(cls.train$class, k = 5, returnTrain = TRUE)
+cls.cv.valid.index <- lapply(
+  cls.cv.train.index,
+  function(idx) setdiff(seq_len(nrow(cls.train)), idx)
+)
+cls.cv.ctrl <- trainControl(
+  method = "cv",
+  number = 5,
+  index = cls.cv.train.index,
+  indexOut = cls.cv.valid.index,
+  classProbs = TRUE,
+  savePredictions = "final"
+)
 
-bootTrain1 <- train[bootstrapSamples[[1]], ]
-nrow(bootTrain1)
+for (i in seq_along(cls.cv.train.index)) {
+  cat(sprintf(
+    "第 %d 折：训练集 = %d，验证集 = %d\n",
+    i,
+    length(cls.cv.train.index[[i]]),
+    length(cls.cv.valid.index[[i]])
+  ))
+}
+cat("总样本数：", nrow(cls.train), "\n")
 
-oobIndex <- setdiff(1:nrow(train), unique(bootstrapSamples[[1]]))
-bootOOB1 <- train[oobIndex, ]
-nrow(bootOOB1)
+############### 5. 模型构建 #######################
 
-
-
-# 2. 异常样本剔除
-# （1） 孤立森林
-library(isotree)
-train.iso <- train[, -c(1)]
-model.iso <- isolation.forest(train.iso, ntrees = 100)
-scores.train.iso <- predict(model.iso, train.iso)
-outliers.train.iso <- which(scores.train.iso > 0.6)
-length(outliers.train.iso)
-train.iso <- train.iso[-outliers.train.iso, ]
-
-test.iso <- test[, -c(1)]
-scores.test.iso <- predict(model.iso, test.iso)
-outliers.test.iso <- which(scores.test.iso > 0.6)
-length(outliers.test.iso)
-
-# （2） 局部离群因子 LOF
-library(Rlof)
-x.scaled <- data %>% select(-class) %>% scale()
-scores.lof <- lof(x.scaled, k = 20)
-outliers.lof <- which(scores.lof > 1.8)
-length(outliers.lof)
-
-
-# 3. 类别处理不平衡
-y <- factor(data$class)
-table(y)
-
-upsampled <- upSample(x = x.scaled, y = y)
-table(upsampled$Class)
-
-
-downsampled <- downSample(x = x.scaled, y = y)
-table(downsampled$Class)
-
-
-############### 3. 模型构建  #######################
-# 逻辑回归
-mlogit.cls.model <- train(class ~ ., data = train,
-                          method = "multinom",
-                          trControl = cv.ctrl,
-                          trace = FALSE)
-print(mlogit.cls.model)
+# 多项逻辑回归
+set.seed(123)
+cls.mlogit.model <- train(
+  class ~ .,
+  data = cls.train,
+  method = "multinom",
+  trControl = cls.cv.ctrl,
+  trace = FALSE
+)
+print(cls.mlogit.model)
 
 # 支持向量机
-svm.cls.model <- train(class ~ ., data = train,
-                       method = "svmRadial",
-                       preProcess = c("center", "scale"),
-                       trControl = cv.ctrl)
-print(svm.cls.model)
+set.seed(123)
+cls.svm.model <- train(
+  class ~ .,
+  data = cls.train,
+  method = "svmRadial",
+  preProcess = c("center", "scale"),
+  trControl = cls.cv.ctrl
+)
+print(cls.svm.model)
 
 # 随机森林
-rf.cls.model <- train(class ~ ., data = train,
-                      method = "rf",
-                      trControl = cv.ctrl,
-                      ntree = 500)
-print(rf.cls.model)
-
-
-########## 4. 模型评估 ##########
-pre.mlogit.train <- predict(mlogit.cls.model)
-confusionMatrix(pre.mlogit.train, as.factor(train$class))
-
-pre.mlogit.prob.train <- predict(mlogit.cls.model, newdata = train, type = "prob")
-df.train <- data.frame(
-  obs = factor(train$class),  
-  pred = factor(pre.mlogit.train)  
+set.seed(123)
+cls.rf.model <- train(
+  class ~ .,
+  data = cls.train,
+  method = "rf",
+  trControl = cls.cv.ctrl,
+  ntree = 500
 )
-df.train <- cbind(df.train, pre.mlogit.prob.train)
-colnames(df.train) <- gsub(" ", "", colnames(df.train))
+print(cls.rf.model)
+
+########## 6. 模型评估 ##########
+
 library(yardstick)
-accuracy(df.train, obs, pred)$.estimate
-precision(df.train, obs, pred, estimator = "macro")$.estimate
-recall(df.train, obs, pred, estimator = "macro")$.estimate
-specificity(df.train, obs, pred, estimator = "macro")$.estimate
-f_meas(df.train, obs, pred, estimator = "macro")$.estimate
-mcc(df.train, obs, pred, estimator = "macro")$.estimate
-roc_auc(df.train, obs, d:s, estimator = "macro")$.estimate
-pr_auc(df.train, obs, d:s, estimator = "macro")$.estimate
 
+cls.df.cv <- cls.mlogit.model$pred %>%
+  select(obs, pred, all_of(levels(cls.train$class)))
+confusionMatrix(cls.df.cv$pred, cls.df.cv$obs)
 
-pdf("分类模型ROC.pdf", width = 10, height = 8)
-roc_curve(df.train, obs, d, h, o, s) %>% 
-  ggplot(aes(1-specificity, sensitivity))+
-  geom_line()+
-  geom_abline(linetype = 2)+
-  facet_wrap(vars(.level))+
-  theme_bw() +
-  theme(
-    plot.title = element_text(size = 18),     # 设置标题字体大小
-    axis.title = element_text(size = 18),     # 设置轴标题字体大小
-    axis.text = element_text(size = 18),      # 设置坐标轴刻度字体大小
-    legend.title = element_text(size = 18),   # 设置图例标题字体大小
-    legend.text = element_text(size = 18),     # 设置图例文本字体大小
-    strip.text = element_text(size = 18) 
+accuracy(cls.df.cv, obs, pred)$.estimate
+precision(cls.df.cv, obs, pred, estimator = "macro")$.estimate
+recall(cls.df.cv, obs, pred, estimator = "macro")$.estimate
+specificity(cls.df.cv, obs, pred, estimator = "macro")$.estimate
+f_meas(cls.df.cv, obs, pred, estimator = "macro")$.estimate
+mcc(cls.df.cv, obs, pred)$.estimate
+roc_auc(cls.df.cv, obs, d:s, estimator = "macro")$.estimate
+pr_auc(cls.df.cv, obs, d:s, estimator = "macro")$.estimate
+
+cls.get.best <- function(cls.model, cls.name) {
+  cls.best <- merge(cls.model$results, cls.model$bestTune)
+  
+  cls.fold.f1 <- cls.model$pred %>%
+    group_by(Resample) %>%
+    summarise(
+      F1 = yardstick::f_meas_vec(
+        truth = obs, estimate = pred, estimator = "macro"
+      ),
+      .groups = "drop"
+    )
+  
+  data.frame(
+    Model = cls.name,
+    Accuracy = cls.best$Accuracy,
+    Kappa = cls.best$Kappa,
+    F1 = mean(cls.fold.f1$F1)
   )
-dev.off()
+}
 
-pdf("分类模型PR.pdf", width = 10, height = 8)
-pr_curve(df.train, obs, d, h, o, s) %>% 
-  ggplot(aes(recall, precision))+
+cls.cv.results <- bind_rows(
+  cls.get.best(cls.mlogit.model, "多类逻辑回归"),
+  cls.get.best(cls.svm.model, "支持向量机"),
+  cls.get.best(cls.rf.model, "随机森林")
+)
+print(cls.cv.results)
+
+cls.selected.model <- cls.cv.results$Model[which.max(cls.cv.results$Accuracy)]
+cat("按交叉验证Accuracy选择的分类模型：", cls.selected.model, "\n")
+
+pdf("分类模型ROC.pdf", width = 10, height = 8, family = "GB1")
+roc_curve(cls.df.cv, obs, d, h, o, s) %>%
+  ggplot(aes(1 - specificity, sensitivity)) +
   geom_line() +
-  # annotate("segment", x = 0, y = 1, xend = 1, yend = 0, 
-  #          linetype = "dashed", color = "gray") + 
-  facet_wrap(vars(.level))+
+  geom_abline(linetype = 2) +
+  facet_wrap(vars(.level)) +
   theme_bw() +
   theme(
-    plot.title = element_text(size = 18),     # 设置标题字体大小
-    axis.title = element_text(size = 18),     # 设置轴标题字体大小
-    axis.text = element_text(size = 18),      # 设置坐标轴刻度字体大小
-    legend.title = element_text(size = 18),   # 设置图例标题字体大小
-    legend.text = element_text(size = 18),     # 设置图例文本字体大小
-    strip.text = element_text(size = 18) 
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 18),
+    strip.text = element_text(size = 18)
   )
 dev.off()
 
-pre.svm.train <- predict(svm.cls.model)
-confusionMatrix(pre.svm.train, as.factor(train$class))
+pdf("分类模型PR.pdf", width = 10, height = 8, family = "GB1")
+pr_curve(cls.df.cv, obs, d, h, o, s) %>%
+  ggplot(aes(recall, precision)) +
+  geom_line() +
+  facet_wrap(vars(.level)) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 18),
+    strip.text = element_text(size = 18)
+  )
+dev.off()
 
-# pre.svm.prob.train <- predict(svm.cls.model, type = "prob")
-# df.train <- data.frame(
-#   obs = factor(train$class),  
-#   pred = factor(pre.svm.train)  
-# )
-# df.train <- cbind(df.train, pre.svm.prob.train)
-# colnames(df.train) <- gsub(" ", "", colnames(df.train))
-# library(yardstick)
-# accuracy(df.train, obs, pred, estimator = "macro")
-# precision(df.train, obs, pred, estimator = "macro")
-# recall(df.train, obs, pred, estimator = "macro")
-# specificity(df.train, obs, pred, estimator = "macro")
-# f_meas(df.train, obs, pred, estimator = "macro")
-# mcc(df.train, obs, pred, estimator = "macro")
-# roc_auc(df.train, obs, d:s, estimator = "macro")
-# pr_auc(df.train, obs, d:s, estimator = "macro")
-# 
-# roc_curve(df.train, obs, d, h, o, s)%>% 
-#   autoplot()
+############### 7. 结果分析 ###########################
 
-
-
-pre.rf.train <- predict(rf.cls.model)
-confusionMatrix(pre.rf.train, as.factor(train$class))
-
-
-pre.rf.prob.train <- predict(rf.cls.model, type = "prob")
-df.train <- data.frame(
-  obs = factor(train$class),  
-  pred = factor(pre.rf.train)  
+cls.pre.mlogit.raw.test <- predict(
+  cls.mlogit.model,
+  newdata = cls.test,
+  type = "raw"
 )
-df.train <- cbind(df.train, pre.rf.prob.train)
-colnames(df.train) <- gsub(" ", "", colnames(df.train))
-library(yardstick)
-accuracy(df.train, obs, pred, estimator = "macro")
-precision(df.train, obs, pred, estimator = "macro")
-recall(df.train, obs, pred, estimator = "macro")
-specificity(df.train, obs, pred, estimator = "macro")
-f_meas(df.train, obs, pred, estimator = "macro")
-mcc(df.train, obs, pred, estimator = "macro")
-roc_auc(df.train, obs, d:s, estimator = "macro")
-pr_auc(df.train, obs, d:s, estimator = "macro")
-
-roc_curve(df.train, obs, d, h, o, s) %>% 
-  autoplot()
-
-
-
-############### 6. 结果分析 ###########################
-
-pred.rf.test <- predict(rf.cls.model, newdata = test)
-obs.clean  <- trimws(as.character(test$class))
-pred.clean <- trimws(as.character(pred.rf.test))
-levs <- levels(factor(obs.clean))
-test.df <- data.frame(
-  obs  = factor(obs.clean,  levels = levs),
-  pred = factor(pred.clean, levels = levs)
+cls.pre.mlogit.prob.test <- predict(
+  cls.mlogit.model,
+  newdata = cls.test,
+  type = "prob"
 )
+cls.df.test <- data.frame(
+  obs = cls.test$class,
+  pred = cls.pre.mlogit.raw.test
+)
+cls.df.test <- cbind(cls.df.test, cls.pre.mlogit.prob.test)
 
-results <- multiClassSummary(data = test.df, lev = levs, model = "rf")
-print(round(results, 3))
+cls.test.results <- multiClassSummary(
+  data = cls.df.test,
+  lev = levels(cls.train$class),
+  model = "multinom"
+)
+print(round(cls.test.results, 3))
+
+accuracy(cls.df.test, obs, pred)$.estimate
+precision(cls.df.test, obs, pred, estimator = "macro")$.estimate
+recall(cls.df.test, obs, pred, estimator = "macro")$.estimate
+specificity(cls.df.test, obs, pred, estimator = "macro")$.estimate
+f_meas(cls.df.test, obs, pred, estimator = "macro")$.estimate
+mcc(cls.df.test, obs, pred)$.estimate
+roc_auc(cls.df.test, obs, d:s, estimator = "macro")$.estimate
+pr_auc(cls.df.test, obs, d:s, estimator = "macro")$.estimate
 
 library(randomForest)
-# pdf("随机森林重要性.pdf", width = 6, height = 4)
-varImpPlot(rf.cls.model$finalModel, cex.lab = 1.4, cex.axis = 1.4, main = "")
-# dev.off()
-
-
-pred.rf.test <- predict(rf.cls.model, newdata = test)
-obs.clean <- trimws(as.character(test$class))
-pred.clean <- trimws(as.character(pred.rf.test))
-levs <- levels(factor(obs.clean))
-test.df <- data.frame(
-  obs = factor(obs.clean, levels = levs),
-  pred = factor(pred.clean, levels = levs)
+varImpPlot(
+  cls.rf.model$finalModel,
+  cex.lab = 1.4,
+  cex.axis = 1.4,
+  main = ""
 )
-results <- multiClassSummary(data = test.df, lev = levs, model = "rf")
-print(round(results, 3))
-
-# AUC曲线和PR曲线
-pre.rf.raw.test <- predict(rf.cls.model, newdata = test, type = "raw")
-pre.rf.prob.test <- predict(rf.cls.model, newdata = test, type = "prob")
-df.test <- data.frame(
-  obs = factor(test$class),  
-  pred = factor(pre.rf.raw.test)  
-)
-df.test <- cbind(df.test, pre.rf.prob.test)
-colnames(df.test) <- gsub(" ", "", colnames(df.test))
-library(yardstick)
-accuracy(df.test, obs, pred)$.estimate
-precision(df.test, obs, pred, estimator = "macro")$.estimate
-recall(df.test, obs, pred, estimator = "macro")$.estimate
-specificity(df.test, obs, pred, estimator = "macro")$.estimate
-f_meas(df.test, obs, pred, estimator = "macro")$.estimate
-mcc(df.test, obs, pred)$.estimate
-roc_auc(df.test, obs, d:s, estimator = "macro")$.estimate
-pr_auc(df.test, obs, d:s, estimator = "macro")$.estimate
-
-
-
-
-
-
-
-
-
-

@@ -1,365 +1,624 @@
 # remotes::install_github("FoRTExperiment/fortedata", dependencies = TRUE)
 library(fortedata)
-library(dplyr)
 library(caret)
 library(tidyverse)
 
-##############  1. 数据加载与预处理   ###################
+############## 1. 数据加载与划分 ###################
 
-# 1.缺失值预处理
-data <- fd_soil_respiration()
-str(data)
+reg.data <- fd_soil_respiration()
+str(reg.data)
 
-data <- data %>%
+reg.data <- reg.data %>%
   select(-date, -timestamp)
 
+# 监督学习要求响应变量已观测；预测变量的缺失值在划分后处理
+reg.data <- reg.data %>%
+  filter(!is.na(soil_co2_efflux))
 
-# 缺失值
-sapply(data, function(x) sum(is.na(x)))
+# 每个子样地只保留一行划分信息，再使用响应变量中位数维持分层
+reg.subplot.data <- reg.data %>%
+  group_by(subplot_id) %>%
+  summarise(
+    reg.stratum = median(soil_co2_efflux),
+    .groups = "drop"
+  )
 
-# data <- data %>%
-#   select(plot, soil_co2_efflux, soil_temp, vwc) %>%
-#   drop_na()
+set.seed(123)
+reg.train.subplot.idx <- createDataPartition(
+  reg.subplot.data$reg.stratum,
+  p = 0.8,
+  list = FALSE,
+  groups = 2
+)
+reg.train.subplots <- reg.subplot.data$subplot_id[reg.train.subplot.idx]
+reg.test.subplots <- setdiff(reg.subplot.data$subplot_id, reg.train.subplots)
 
-data <- data %>%
-      drop_na()
+reg.train <- reg.data %>%
+  filter(subplot_id %in% reg.train.subplots)
+reg.test <- reg.data %>%
+  filter(subplot_id %in% reg.test.subplots)
 
+cat("训练集样本数：", nrow(reg.train), "\n")
+cat("测试集样本数：", nrow(reg.test), "\n")
+cat("总样本数：", nrow(reg.data), "\n")
+cat("训练集子样地数：", n_distinct(reg.train$subplot_id), "\n")
+cat("测试集子样地数：", n_distinct(reg.test$subplot_id), "\n")
+cat(
+  "训练集与测试集重叠子样地数：",
+  length(intersect(reg.train.subplots, reg.test.subplots)),
+  "\n"
+)
+
+############## 2. 样本预处理 ###################
+
+# （1）以subplot_id为单位进行整组Bootstrap
+reg.subplot.rows <- split(
+  seq_len(nrow(reg.train)),
+  reg.train$subplot_id
+)
+
+set.seed(123)
+reg.bootstrap.subplots <- replicate(
+  3,
+  sample(
+    names(reg.subplot.rows),
+    size = length(reg.subplot.rows),
+    replace = TRUE
+  ),
+  simplify = FALSE
+)
+names(reg.bootstrap.subplots) <- paste0(
+  "Resample",
+  seq_along(reg.bootstrap.subplots)
+)
+reg.bootstrap.samples <- lapply(
+  reg.bootstrap.subplots,
+  function(ids) {
+    unlist(reg.subplot.rows[ids], use.names = FALSE)
+  }
+)
+str(reg.bootstrap.subplots)
+
+reg.boot.train1 <- reg.train[
+  reg.bootstrap.samples[[1]],
+  ,
+  drop = FALSE
+]
+nrow(reg.boot.train1)
+
+reg.oob.subplots <- setdiff(
+  names(reg.subplot.rows),
+  unique(reg.bootstrap.subplots[[1]])
+)
+reg.boot.oob1 <- reg.train[
+  reg.train$subplot_id %in% reg.oob.subplots,
+  ,
+  drop = FALSE
+]
+length(reg.oob.subplots)
+nrow(reg.boot.oob1)
+
+# 以下孤立森林和LOF代码仅用于知识点演示，不参与后续模型训练
+# （2）孤立森林
+library(isotree)
+set.seed(123)
+reg.sample.predictors <- c("soil_temp", "vwc")
+reg.train.iso <- reg.train[, reg.sample.predictors, drop = FALSE] %>%
+  drop_na()
+reg.iso.model <- isolation.forest(reg.train.iso, ntrees = 100)
+reg.train.iso.scores <- predict(reg.iso.model, reg.train.iso)
+reg.train.iso.outliers <- which(reg.train.iso.scores > 0.6)
+length(reg.train.iso.outliers)
+
+# （3）局部离群因子LOF
+library(Rlof)
+reg.x.scaled <- scale(reg.train.iso)
+reg.lof.scores <- lof(reg.x.scaled, k = 20, cores = 1)
+reg.lof.outliers <- which(reg.lof.scores > 1.8)
+length(reg.lof.outliers)
+
+############## 3. 特征预处理 ###################
+
+# 1. 缺失值处理
+sapply(reg.train, function(x) sum(is.na(x)))
+sapply(reg.test, function(x) sum(is.na(x)))
+
+reg.train <- reg.train %>% drop_na()
+reg.test <- reg.test %>% drop_na()
 
 # 2. 数值型特征预处理
-# （1）异常值 IQR
-Q1 <- quantile(data$vwc, 0.25)
-Q3 <- quantile(data$vwc, 0.75)
-IQR.value <- Q3 - Q1
-lower.bound <- Q1 - 1.5 * IQR.value
-upper.bound <- Q3 + 1.5 * IQR.value
+# （1）IQR异常值筛查演示
+reg.q1 <- quantile(reg.train$vwc, 0.25)
+reg.q3 <- quantile(reg.train$vwc, 0.75)
+reg.iqr <- reg.q3 - reg.q1
+reg.lower.bound <- reg.q1 - 1.5 * reg.iqr
+reg.upper.bound <- reg.q3 + 1.5 * reg.iqr
 
-outliers.IQR <- data$vwc[data$vwc < lower.bound | data$vwc > upper.bound]
-head(outliers.IQR)
-data.no.outliers <- data[data$vwc >= lower.bound & data$vwc <= upper.bound, ]
+reg.outliers.iqr <- reg.train$vwc[
+  reg.train$vwc < reg.lower.bound | reg.train$vwc > reg.upper.bound
+]
+head(reg.outliers.iqr)
 
-# 异常值z-score
-# mean.vwc <- mean(data$vwc, na.rm = TRUE)
-# sd.vwc <- sd(data$vwc, na.rm = TRUE)
-# z.scores <- (data$vwc - mean.vwc) / sd.vwc
-# outliers.zscore <- data$vwc[abs(z.scores) > 3]
-# head(outliers.zscore)
+reg.train.iqr.demo <- reg.train[
+  reg.train$vwc >= reg.lower.bound & reg.train$vwc <= reg.upper.bound,
+  ,
+  drop = FALSE
+]
 
-# （2）标准化
-vwc.scaled <- scale(data.no.outliers$vwc, center = T, scale = T)
-attributes(vwc.scaled)
+# （2）使用训练集参数进行中心化和标准化
+reg.vwc.scaled <- scale(reg.train$vwc, center = TRUE, scale = TRUE)
+reg.vwc.center <- attr(reg.vwc.scaled, "scaled:center")
+reg.vwc.scale <- attr(reg.vwc.scaled, "scaled:scale")
+reg.vwc.test.scaled <- scale(
+  reg.test$vwc,
+  center = reg.vwc.center,
+  scale = reg.vwc.scale
+)
+attributes(reg.vwc.scaled)
 
-# （3）偏度检验
+# （3）使用训练集估计Box-Cox参数
 library(e1071)
-skewness(data.no.outliers$vwc)
+skewness(reg.train$vwc)
 
-vwc.boxcox <- BoxCoxTrans(data.no.outliers$vwc)
-vwc.boxcox
+reg.vwc.boxcox <- BoxCoxTrans(reg.train$vwc)
+reg.vwc.boxcox
 
-vwc.boxcoxed <- predict(vwc.boxcox, as.numeric(data.no.outliers$vwc))
-head(vwc.boxcoxed)
-skewness(vwc.boxcoxed)
+reg.vwc.train.boxcoxed <- predict(reg.vwc.boxcox, reg.train$vwc)
+reg.vwc.test.boxcoxed <- predict(reg.vwc.boxcox, reg.test$vwc)
+head(reg.vwc.train.boxcoxed)
+skewness(reg.vwc.train.boxcoxed)
 
+# 保存分组变量；subplot_id仅用于分组，不作为模型预测变量
+reg.train.groups <- reg.train$subplot_id
+reg.test.groups <- reg.test$subplot_id
 
+# 3. 分类变量哑变量编码
+reg.factor.vars <- c(
+  "replicate", "plot", "subplot", "nested_subplot", "run"
+)
+reg.train[reg.factor.vars] <- lapply(reg.train[reg.factor.vars], factor)
+reg.test[reg.factor.vars] <- Map(
+  function(x, lev) factor(x, levels = lev),
+  reg.test[reg.factor.vars],
+  lapply(reg.train[reg.factor.vars], levels)
+)
 
+reg.dummies <- dummyVars(
+  ~ . - soil_temp - soil_co2_efflux - vwc - subplot_id,
+  data = reg.train,
+  fullRank = TRUE
+)
+reg.train.transformed <- predict(reg.dummies, newdata = reg.train)
+reg.test.transformed <- predict(reg.dummies, newdata = reg.test)
 
+reg.train <- cbind(
+  data.frame(reg.train.transformed),
+  soil_temp = reg.train$soil_temp,
+  vwc = reg.train$vwc,
+  soil_co2_efflux = reg.train$soil_co2_efflux
+)
+reg.test <- cbind(
+  data.frame(reg.test.transformed),
+  soil_temp = reg.test$soil_temp,
+  vwc = reg.test$vwc,
+  soil_co2_efflux = reg.test$soil_co2_efflux
+)
 
-# 3.分类变量哑变量编码
-data.no.outliers$plot <- as.factor(data.no.outliers$plot)
-data.no.outliers$run <- as.factor(data.no.outliers$run)
-dummies <- dummyVars(~ . - soil_temp - soil_co2_efflux - vwc, data = data.no.outliers, fullRank = TRUE)
-transformed.data <- predict(dummies, newdata = data.no.outliers)
+# 4. 特征选择
+reg.predictors <- c("soil_temp", "vwc")
+reg.train.num <- reg.train[, reg.predictors, drop = FALSE]
+reg.test.num <- reg.test[, reg.predictors, drop = FALSE]
 
-data <- cbind(data.frame(transformed.data),
-              soil_temp = data.no.outliers$soil_temp, 
-              vwc = data.no.outliers$vwc, 
-              soil_co2_efflux = data.no.outliers$soil_co2_efflux)
-
-
-
-# 4.特征选择
 # （1）过滤法
-data.num <- data[, c("soil_temp", "vwc")]
-nzv <- nearZeroVar(data.num, freqCut = 20, uniqueCut = 10, saveMetrics = TRUE)
-nzv
+reg.nzv <- nearZeroVar(
+  reg.train.num,
+  freqCut = 20,
+  uniqueCut = 10,
+  saveMetrics = TRUE
+)
+reg.nzv
 
 # （2）共线性检验
-cor.matrix <- cor(data.num)
+reg.cor.matrix <- cor(reg.train.num)
 library(corrplot)
-# corrplot(cor.matrix, order = "hclust", tl.col = "black", is.corr = T)
-# pdf("土壤CO2通量数据集特征之间相关性图.pdf", width = 10, height = 8)
-corrplot(cor.matrix, order = "hclust", method = "circle", type = "full", 
-         addCoef.col = "red", # 设置相关系数数字的颜色
-         number.cex = 1.5,      # 设置数字大小
-         tl.cex = 1.5,        # 坐标轴标签的字体大小
-         tl.col = "black",     # 坐标轴标签的颜色
-         cl.cex = 1.5)        # 颜色图例字体大小
-# dev.off()
-
-
-highCorr <- findCorrelation(cor.matrix, cutoff = 0.6)
-highCorr
-
-# forestfires_num_filtered <- forestfires_num[, -highCorr]
-
-
-# 5.特征降维与提取
-library(psych)
-selected.vars <- data[, c("soil_temp", "vwc")]
-KMO(selected.vars)
-psych::cortest.bartlett(selected.vars)
-
-pca.selected.vars <- prcomp(selected.vars, scale. = T, center = T)
-pca.selected.vars
-
-
-############## 2. 样本预处理 #################
-# 数据集分割
-# （1）留出法（训练集与测试集）
-set.seed(123)
-train.idx <- createDataPartition(data$soil_co2_efflux, p = 0.8, list = FALSE)
-train <- data[train.idx, ]
-test <- data[-train.idx, ]
-cat("训练集样本数：", nrow(train), "\n")
-cat("测试集样本数：", nrow(test), "\n")
-cat("总样本数：", nrow(data), "\n")
-
-# （2）交叉验证（训练集 -> 训练集 + 验证集）
-cv.ctrl <- trainControl(method = "cv", number = 5)
-
-dummy.model <- train(
-  x = train,
-  y = as.factor(train$soil_co2_efflux),
-  method = "rpart",
-  trControl = cv.ctrl
+corrplot(
+  reg.cor.matrix,
+  order = "hclust",
+  method = "circle",
+  type = "full",
+  addCoef.col = "red",
+  number.cex = 1.5,
+  tl.cex = 1.5,
+  tl.col = "black",
+  cl.cex = 1.5
 )
 
-for (i in seq_along(dummy.model$control$index)) {
-  train.idx <- dummy.model$control$index[[i]]
-  valid.idx <- dummy.model$control$indexOut[[i]]
-  cat(sprintf("第 %d 折：训练集 = %d，验证集 = %d\n", 
-              i, length(train.idx), length(valid.idx)))
+reg.high.corr <- findCorrelation(reg.cor.matrix, cutoff = 0.6)
+reg.high.corr
+
+# 5. 特征降维与提取
+library(psych)
+KMO(reg.train.num)
+psych::cortest.bartlett(reg.train.num)
+
+reg.pca <- prcomp(reg.train[, reg.predictors], scale. = TRUE, center = TRUE)
+reg.pca
+reg.test.pca <- predict(reg.pca, newdata = reg.test[, reg.predictors])
+
+############## 4. 重采样设置 #################
+
+# （1）按子样地建立固定的交叉验证索引
+set.seed(123)
+reg.cv.train.index <- groupKFold(reg.train.groups, k = 5)
+reg.cv.valid.index <- lapply(
+  reg.cv.train.index,
+  function(idx) setdiff(seq_len(nrow(reg.train)), idx)
+)
+
+reg.summary <- function(data, lev = NULL, model = NULL) {
+  reg.residuals <- data$obs - data$pred
+  reg.sst <- sum((data$obs - mean(data$obs))^2)
+  c(
+    RMSE = sqrt(mean(reg.residuals^2)),
+    R.squared = 1 - sum(reg.residuals^2) / reg.sst,
+    MAE = mean(abs(reg.residuals))
+  )
 }
 
-cat("总样本数：", nrow(train), "\n")
-
-
-# （3）自助法Bootstrap
-set.seed(123)
-bootstrapSamples <- createResample(train$soil_co2_efflux, times = 3)
-str(bootstrapSamples)
-
-bootTrain1 <- train[bootstrapSamples[[1]], ]
-nrow(bootTrain1)
-
-oobIndex <- setdiff(1:nrow(train), unique(bootstrapSamples[[1]]))
-bootOOB1 <- train[oobIndex, ]
-nrow(bootOOB1)
-
-
-# 2. 异常样本剔除  
-# （1） 孤立森林
-library(isotree)
-train.iso <- train[, -ncol(train)]
-model.iso <- isolation.forest(train.iso, ntrees = 100)
-scores.train.iso <- predict(model.iso, train.iso)
-outliers.train.iso <- which(scores.train.iso > 0.6)
-length(outliers.train.iso)
-
-test.iso <- test[, -ncol(test)]
-scores.test.iso <- predict(model.iso, test.iso)
-outliers.test.iso <- which(scores.test.iso > 0.6)
-length(outliers.test.iso)
-
-# （2） 局部离群因子 LOF
-library(Rlof)
-num.scaled <- scale(data[, c("soil_temp", "vwc")])
-x.scaled <- cbind(
-  data[, !(names(data) %in% c("soil_temp", "vwc", "soil_co2_efflux"))],
-  scale(data[, c("soil_temp", "vwc")])
+reg.cv.ctrl <- trainControl(
+  method = "cv",
+  number = length(reg.cv.train.index),
+  index = reg.cv.train.index,
+  indexOut = reg.cv.valid.index,
+  summaryFunction = reg.summary,
+  savePredictions = "final"
 )
-scores.lof <- lof(x.scaled, k = 20)
-outliers.lof <- which(scores.lof > 1.8)
-length(outliers.lof)
 
+reg.foldid <- integer(nrow(reg.train))
+for (i in seq_along(reg.cv.valid.index)) {
+  reg.foldid[reg.cv.valid.index[[i]]] <- i
+}
+stopifnot(all(reg.foldid > 0))
 
-################ 3. 模型构建   ################
+for (i in seq_along(reg.cv.train.index)) {
+  cat(sprintf(
+    "第 %d 折：训练集 = %d，验证集 = %d，验证子样地 = %d\n",
+    i,
+    length(reg.cv.train.index[[i]]),
+    length(reg.cv.valid.index[[i]]),
+    n_distinct(reg.train.groups[reg.cv.valid.index[[i]]])
+  ))
+  stopifnot(length(intersect(
+    unique(reg.train.groups[reg.cv.train.index[[i]]]),
+    unique(reg.train.groups[reg.cv.valid.index[[i]]])
+  )) == 0)
+}
+cat("总样本数：", nrow(reg.train), "\n")
+
+################ 5. 模型构建 ################
+
+reg.train$log.efflux <- log1p(reg.train$soil_co2_efflux)
+reg.test$log.efflux <- log1p(reg.test$soil_co2_efflux)
+
 # （1）线性回归模型
-train$log_efflux <- log1p(train$soil_co2_efflux)
-lm.reg.model <- train(log_efflux ~ soil_temp + vwc, data = train, method = "lm", trControl = cv.ctrl)
-print(lm.reg.model)
+set.seed(123)
+reg.lm.model <- train(
+  log.efflux ~ soil_temp + vwc,
+  data = reg.train,
+  method = "lm",
+  trControl = reg.cv.ctrl
+)
+print(reg.lm.model)
 
 # （2）岭回归模型
 library(glmnet)
-x.train.ridge <- as.matrix(train[, names(train) %in% c("soil_temp", "vwc")])
-y.train.ridge <- as.matrix(train[, names(train) %in% c("log_efflux")])
-ridge.reg.model <- cv.glmnet(x.train.ridge, y.train.ridge, alpha = 0, nfolds = 5)
-par(mar = c(5,5,4,2))
-# pdf("ridge.pdf", width = 10, height = 6)
-plot(ridge.reg.model, cex.lab = 1.8, cex.axis = 1.8)
-# dev.off()
-print(ridge.reg.model)
-# y_pred <- predict(ridge.reg.model, newx = x.train.ridge, s = "lambda.min")
-
+reg.x.train.ridge <- as.matrix(reg.train[, reg.predictors])
+reg.y.train.ridge <- reg.train$log.efflux
+reg.ridge.model <- cv.glmnet(
+  reg.x.train.ridge,
+  reg.y.train.ridge,
+  alpha = 0,
+  foldid = reg.foldid,
+  keep = TRUE
+)
+reg.ridge.fold.mse <- sapply(
+  seq_along(reg.ridge.model$lambda),
+  function(j) {
+    vapply(
+      reg.cv.valid.index,
+      function(idx) {
+        mean(
+          (
+            reg.y.train.ridge[idx] -
+              reg.ridge.model$fit.preval[idx, j]
+          )^2
+        )
+      },
+      numeric(1)
+    )
+  }
+)
+reg.ridge.cv.mean <- colMeans(reg.ridge.fold.mse)
+reg.ridge.cv.se <- apply(reg.ridge.fold.mse, 2, sd) /
+  sqrt(nrow(reg.ridge.fold.mse))
+reg.ridge.lambda.index <- which.min(reg.ridge.cv.mean)
+reg.ridge.lambda.min <- reg.ridge.model$lambda[reg.ridge.lambda.index]
+reg.ridge.lambda.1se.index <- which(
+  reg.ridge.cv.mean <=
+    reg.ridge.cv.mean[reg.ridge.lambda.index] +
+      reg.ridge.cv.se[reg.ridge.lambda.index]
+)[1]
+reg.ridge.lambda.1se <- reg.ridge.model$lambda[
+  reg.ridge.lambda.1se.index
+]
+reg.ridge.cv.summary <- data.frame(
+  Lambda = c(reg.ridge.lambda.min, reg.ridge.lambda.1se),
+  Index = c(reg.ridge.lambda.index, reg.ridge.lambda.1se.index),
+  Measure = reg.ridge.cv.mean[
+    c(reg.ridge.lambda.index, reg.ridge.lambda.1se.index)
+  ],
+  SE = reg.ridge.cv.se[
+    c(reg.ridge.lambda.index, reg.ridge.lambda.1se.index)
+  ],
+  Nonzero = reg.ridge.model$nzero[
+    c(reg.ridge.lambda.index, reg.ridge.lambda.1se.index)
+  ]
+)
+rownames(reg.ridge.cv.summary) <- c("min", "1se")
+par(mar = c(5, 5, 4, 2))
+plot(
+  log(reg.ridge.model$lambda),
+  reg.ridge.cv.mean,
+  type = "l",
+  xlab = expression(log(lambda)),
+  ylab = "Mean MSE across folds",
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
+abline(
+  v = log(c(reg.ridge.lambda.min, reg.ridge.lambda.1se)),
+  lty = 2
+)
+print(reg.ridge.cv.summary)
 
 # （3）非线性回归模型
-nls.reg.model <- nls(log_efflux ~ a*(1-exp(-b*soil_temp-c*vwc)), 
-                     start = c(a =1, b = 0.1, c = 0.01), data = train)
-summary(nls.reg.model)
-# y_pred <- predict(nls.reg.model)
+reg.nls.model <- nls(
+  log.efflux ~ a * (1 - exp(-b * soil_temp - c * vwc)),
+  start = c(a = 1, b = 0.1, c = 0.01),
+  data = reg.train
+)
+summary(reg.nls.model)
 
-
+reg.nls.oof <- rep(NA_real_, nrow(reg.train))
+for (i in seq_along(reg.cv.train.index)) {
+  reg.nls.fold.model <- nls(
+    log.efflux ~ a * (1 - exp(-b * soil_temp - c * vwc)),
+    start = c(a = 1, b = 0.1, c = 0.01),
+    data = reg.train[reg.cv.train.index[[i]], ]
+  )
+  reg.nls.oof[reg.cv.valid.index[[i]]] <- predict(
+    reg.nls.fold.model,
+    newdata = reg.train[reg.cv.valid.index[[i]], ]
+  )
+}
 
 # （4）随机森林回归
 library(randomForest)
+set.seed(123)
+reg.rf.model <- train(
+  log.efflux ~ soil_temp + vwc,
+  data = reg.train,
+  method = "rf",
+  trControl = reg.cv.ctrl
+)
+print(reg.rf.model)
 
-rf.reg.model <- train(log_efflux ~ soil_temp + vwc, data = train, method = "rf", trControl = cv.ctrl)
-print(rf.reg.model)
-# y_pred <- predict(rf.reg.model)
-
-
-################# 4. 模型评估 ####################
+################# 6. 模型评估 ####################
 
 evaluate.regression <- function(y.true, y.pred) {
-  # 检查输入是否长度一致
   if (length(y.true) != length(y.pred)) {
     stop("y.true 和 y.pred 必须长度一致")
   }
-  # 样本数
-  n <- length(y.true)
-  # 误差项
+  if (any(!is.finite(y.true)) || any(!is.finite(y.pred))) {
+    stop("y.true 和 y.pred 必须为有限数值")
+  }
+  if (length(y.true) < 2 || isTRUE(all.equal(var(y.true), 0))) {
+    stop("y.true 必须包含至少两个不同的有限观测值")
+  }
+
   residuals <- y.true - y.pred
-  # 均方误差
   mse <- mean(residuals^2)
-  # 均方根误差
   rmse <- sqrt(mse)
-  
-  # 平均绝对误差
   mae <- mean(abs(residuals))
-  # 决定系数 R²
-  ss_total <- sum((y.true - mean(y.true))^2)
-  ss_res <- sum(residuals^2)
-  r_squared <- 1 - ss_res / ss_total
-  # 返回结果
-  result <- data.frame(
+  ss.total <- sum((y.true - mean(y.true))^2)
+  ss.res <- sum(residuals^2)
+  r.squared <- 1 - ss.res / ss.total
+
+  data.frame(
     MSE = mse,
     RMSE = rmse,
     MAE = mae,
-    R_squared = r_squared
+    R.squared = r.squared
   )
-  return(result)
 }
 
+reg.lm.oof <- rep(NA_real_, nrow(reg.train))
+reg.lm.oof[reg.lm.model$pred$rowIndex] <- reg.lm.model$pred$pred
 
-pre.lm.train <- predict(lm.reg.model, newdata = train)
-evaluate.regression(train$log_efflux, pre.lm.train)
+reg.ridge.oof <- reg.ridge.model$fit.preval[, reg.ridge.lambda.index]
 
-pre.ridge.train <- predict(ridge.reg.model, newx = x.train.ridge, s = "lambda.min")
-evaluate.regression(train$log_efflux, pre.ridge.train)
+reg.rf.oof <- rep(NA_real_, nrow(reg.train))
+reg.rf.oof[reg.rf.model$pred$rowIndex] <- reg.rf.model$pred$pred
 
-pre.nls.train <- predict(nls.reg.model)
-evaluate.regression(train$log_efflux, pre.nls.train)
+reg.model.oof <- list(
+  "线性回归" = reg.lm.oof,
+  "岭回归" = reg.ridge.oof,
+  "非线性回归" = reg.nls.oof,
+  "随机森林" = reg.rf.oof
+)
 
-pre.rf.train <- predict(rf.reg.model)
-evaluate.regression(train$log_efflux, pre.rf.train)
+reg.cv.fold.results <- bind_rows(lapply(
+  names(reg.model.oof),
+  function(model.name) {
+    bind_rows(lapply(
+      seq_along(reg.cv.valid.index),
+      function(i) {
+        idx <- reg.cv.valid.index[[i]]
+        cbind(
+          Model = model.name,
+          Fold = i,
+          evaluate.regression(
+            reg.train$log.efflux[idx],
+            reg.model.oof[[model.name]][idx]
+          )
+        )
+      }
+    ))
+  }
+))
 
+reg.cv.results <- reg.cv.fold.results %>%
+  group_by(Model) %>%
+  summarise(
+    across(c(MSE, RMSE, MAE, R.squared), mean),
+    .groups = "drop"
+  ) %>%
+  slice(match(names(reg.model.oof), Model)) %>%
+  as.data.frame()
 
+stopifnot(
+  isTRUE(all.equal(
+    reg.cv.results$RMSE[reg.cv.results$Model == "线性回归"],
+    mean(reg.lm.model$resample$RMSE)
+  )),
+  isTRUE(all.equal(
+    reg.cv.results$RMSE[reg.cv.results$Model == "随机森林"],
+    mean(reg.rf.model$resample$RMSE)
+  ))
+)
+print(reg.cv.results)
 
+reg.selected.model <- reg.cv.results$Model[which.min(reg.cv.results$RMSE)]
+cat("按分组交叉验证RMSE选择的回归模型：", reg.selected.model, "\n")
 
-################# 5. 参数估计  ########################
-summary(lm.reg.model)
-confint(lm.reg.model$finalModel, level = 0.95)
+stopifnot(reg.selected.model == "非线性回归")
+reg.pre.selected.train <- predict(reg.nls.model, newdata = reg.train)
 
+################# 7. 参数估计 ########################
 
-############### 6. 结果分析 ###########################
-test$log_efflux <- log1p(test$soil_co2_efflux)
+reg.coefficients <- coef(reg.lm.model$finalModel)
+print(reg.coefficients)
 
-pre.rf.test <- predict(rf.reg.model, newdata = test)
-evaluate.regression(test$log_efflux, pre.rf.test)
+############### 8. 结果分析 ###########################
 
+reg.pre.selected.test <- predict(reg.nls.model, newdata = reg.test)
+evaluate.regression(reg.test$log.efflux, reg.pre.selected.test)
 
-
-
-
-residuals.reg.train <- train$log_efflux - pre.rf.train
-pdf("CO2通量-土壤体积含水量train.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5,5,4,2))
-plot(train$vwc, residuals.reg.train,
-     xlab = "土壤体积含水量",ylab = "残差", 
-     cex.lab =1.8, cex.axis = 1.8)
+reg.residuals.train <- reg.train$log.efflux - reg.pre.selected.train
+pdf("CO2通量-土壤体积含水量train.pdf", width = 10, height = 6, family = "GB1")
+par(mar = c(5, 6, 4, 2))
+plot(
+  reg.train$vwc,
+  reg.residuals.train,
+  xlab = "土壤体积含水量",
+  ylab = "残差",
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
 dev.off()
 
-residuals.reg.test <- test$log_efflux - pre.rf.test
-pdf("CO2通量-土壤体积含水量test.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5,5,4,2))
-plot(test$vwc, residuals.reg.test,
-     xlab = "土壤体积含水量",ylab = "残差", 
-     cex.lab =1.8, cex.axis = 1.8)
-
+reg.residuals.test <- reg.test$log.efflux - reg.pre.selected.test
+pdf("CO2通量-土壤体积含水量test.pdf", width = 10, height = 6, family = "GB1")
+par(mar = c(5, 6, 4, 2))
+plot(
+  reg.test$vwc,
+  reg.residuals.test,
+  xlab = "土壤体积含水量",
+  ylab = "残差",
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
 dev.off()
 
+reg.coef.summary <- coef(reg.lm.model$finalModel)
+print(reg.coef.summary)
 
-
-coef.summary <- summary(lm.reg.model$finalModel)$coefficients
-print(coef.summary)
-
-
-
-# 残差图
-pdf("CO2训练集残差图.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5,5,4,2))
-plot(pre.rf.train, residuals.reg.train,
-     xlab = "土壤CO2通量预测值",
-     ylab = "残差",
-     cex.lab =1.8, cex.axis = 1.8)
+pdf("CO2训练集残差图.pdf", width = 10, height = 6, family = "GB1")
+par(mar = c(5, 6, 4, 2))
+plot(
+  reg.pre.selected.train,
+  reg.residuals.train,
+  xlab = "土壤CO2通量预测值（log1p尺度）",
+  ylab = "残差",
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
 abline(h = 0, col = "red", lty = 2)
 dev.off()
 
-pdf("CO2测试集残差图.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5,5,4,2))
-plot(pre.rf.test, residuals.reg.test,
-     xlab = "土壤CO2通量预测值",
-     ylab = "残差",
-     cex.lab =1.8, cex.axis = 1.8)
+pdf("CO2测试集残差图.pdf", width = 10, height = 6, family = "GB1")
+par(mar = c(5, 6, 4, 2))
+plot(
+  reg.pre.selected.test,
+  reg.residuals.test,
+  xlab = "土壤CO2通量预测值（log1p尺度）",
+  ylab = "残差",
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
 abline(h = 0, col = "red", lty = 2)
 dev.off()
 
-
-
-# 训练集散点图
-pdf("CO2训练集真实值与预测值散点图.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5,5,4,2))
-plot(train$log_efflux, pre.rf.train,
-     xlab = "真实值（log_efflux）",
-     ylab = "预测值",
-     pch = 20, col = "black", cex = 1, cex.lab =1.8, cex.axis = 1.8)
+pdf("CO2训练集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
+par(mar = c(5, 6, 4, 2))
+plot(
+  reg.train$log.efflux,
+  reg.pre.selected.train,
+  xlab = "真实值（log.efflux）",
+  ylab = "预测值（log.efflux）",
+  pch = 20,
+  col = "black",
+  cex = 1,
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
 abline(0, 1, col = "red", lwd = 2, lty = 2)
 dev.off()
 
-# 测试集散点图
-pdf("CO2测试集真实值与预测值散点图.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5,5,4,2))
-plot(test$log_efflux, pre.rf.test,
-     xlab = "真实值（log_efflux）",
-     ylab = "预测值",
-     pch = 20, col = "black", cex = 1, cex.lab =1.8, cex.axis = 1.8)
+pdf("CO2测试集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
+par(mar = c(5, 6, 4, 2))
+plot(
+  reg.test$log.efflux,
+  reg.pre.selected.test,
+  xlab = "真实值（log.efflux）",
+  ylab = "预测值（log.efflux）",
+  pch = 20,
+  col = "black",
+  cex = 1,
+  cex.lab = 1.8,
+  cex.axis = 1.8
+)
 abline(0, 1, col = "red", lwd = 2, lty = 2)
 dev.off()
 
-library(tidyverse)
+print(reg.rf.model$resample)
+reg.resample.long <- reg.rf.model$resample %>%
+  pivot_longer(
+    cols = c(RMSE, R.squared, MAE),
+    names_to = "Metric",
+    values_to = "Value"
+  )
 
-print(rf.reg.model$resample)
-df.long <- rf.reg.model$resample %>%
-  pivot_longer(cols = c(RMSE, Rsquared, MAE),
-               names_to = "Metric",
-               values_to = "Value")
 pdf("交叉验证结果箱线图.pdf", width = 10, height = 6, family = "GB1")
-ggplot(df.long, aes(x = Metric, y = Value)) +
+ggplot(reg.resample.long, aes(x = Metric, y = Value)) +
   geom_boxplot(fill = "lightblue", width = 0.6) +
   geom_jitter(width = 0.2, size = 2, color = "darkblue", alpha = 0.7) +
   labs(x = "性能指标", y = "") +
   theme(
-    axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
-    axis.title.y = element_text(size = 26, color = "black"),  # y轴标题字体大小
-    axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
-    axis.text.y = element_text(size = 26, color = "black"))   # y轴文本字体大小)
+    axis.title.x = element_text(size = 26, color = "black"),
+    axis.title.y = element_text(size = 26, color = "black"),
+    axis.text.x = element_text(size = 26, color = "black"),
+    axis.text.y = element_text(size = 26, color = "black")
+  )
 dev.off()
+

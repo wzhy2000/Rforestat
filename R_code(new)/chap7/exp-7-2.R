@@ -11,7 +11,6 @@ df <- read_excel("Raw_data.xlsx", sheet = 2)
 df$Suppressed <- ifelse(df$`V(m3)` < 0.001, 1, 0)
 
 head(df)
-df$Suppressed <- as.factor(df$Suppressed)
 
 prop.table <- with(df, prop.table(table(`Slope position`, Suppressed), 1))
 round(prop.table * 100, 3)
@@ -26,7 +25,7 @@ ggplot(plot.df, aes(x = Slope, y = suppress_rate)) +
   ylab("Suppressed Seedling Rate") +
   xlab("Slope Position") +
   ylim(0, 1) +
-  theme_minimal() + 
+  theme_minimal() +
   theme(
     axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
     axis.title.y = element_text(size = 26, color = "black"),  # y轴标题字体大小
@@ -38,15 +37,24 @@ ggplot(plot.df, aes(x = Slope, y = suppress_rate)) +
 # dev.off()
 
 # 数据集划分
+# [修订 CH7-169, CH7-170, CH7-171] 按Plot分组划分，避免同一样地信息造成数据泄漏
 set.seed(123)
-idx <- sample(1:nrow(df), 0.7 * nrow(df))
-train <- df[idx, ]
-test <- df[-idx, ]
+plot_ids <- unique(df$Plot)
+train_plot_ids <- sample(plot_ids, size = floor(0.7 * length(plot_ids)))
+train <- df[df$Plot %in% train_plot_ids, ]
+test <- df[!df$Plot %in% train_plot_ids, ]
+
+# 检查训练集和测试集的样本量与阳性率
+c(train_n = nrow(train), test_n = nrow(test))
+c(train_rate = mean(train$Suppressed == 1),
+  test_rate = mean(test$Suppressed == 1))
 
 
 # 模型构建
-model <- glm(Suppressed ~ `Slope position`, family = binomial, data = train) 
+model <- glm(Suppressed ~ `Slope position`, family = binomial, data = train)
 summary(model)
+# [修订 CH7-168, CH7-175] 坡位因子的整体效应用drop1()判断
+drop1(model, test = "Chisq")
 
 # 自动寻找最优分类阈值
 pre.prob.train <- predict(model, type = "response")
@@ -57,14 +65,17 @@ cat("最优分类阈值为：", best.threshold, "\n")
 
 
 # 模型性能评估
-pre.class.train <- as.factor(ifelse(pre.prob.train > best.threshold, 1, 0))
-pre.class.train <- factor(pre.class.train, levels = levels(train$Suppressed))
+# [修订 CH7-173] 统一用factor(levels = c(0, 1))构造标签
+train$Suppressed <- factor(train$Suppressed, levels = c(0, 1))
+pre.class.train <- factor(ifelse(pre.prob.train > best.threshold, 1, 0),
+                          levels = c(0, 1))
 confusionMatrix(pre.class.train, train$Suppressed, positive = "1")
 # 模型测试
 pre.prob.test <- predict(model, newdata = test, type = "response")
-pre.class.test <- as.factor(ifelse(pre.prob.test > best.threshold, 1, 0))
-pre.class.test <- factor(pre.class.test, levels = levels(as.factor(test$Suppressed)))
-confusionMatrix(pre.class.test, as.factor(test$Suppressed), positive = "1")
+test$Suppressed <- factor(test$Suppressed, levels = c(0, 1))
+pre.class.test <- factor(ifelse(pre.prob.test > best.threshold, 1, 0),
+                         levels = c(0, 1))
+confusionMatrix(pre.class.test, test$Suppressed, positive = "1")
 
 
 # 结果可视化
@@ -72,7 +83,7 @@ confusionMatrix(pre.class.test, as.factor(test$Suppressed), positive = "1")
 # ROC曲线
 roc.train <- roc(train$Suppressed, pre.prob.train)
 roc.test <- roc(test$Suppressed, pre.prob.test)
-# pdf("roc森林培育.pdf", width = 8, height = 8)
+pdf("roc森林培育.pdf", width = 8, height = 8)
 plot(roc.train, col = "blue", lwd = 3, legacy.axes = TRUE,
      mar = c(6, 6, 2, 2), mgp = c(4, 1, 0),
      cex.lab = 2.2, cex.axis = 2.2)
@@ -81,7 +92,7 @@ legend("bottomright",
        legend = c(paste0("Train AUC = ", round(auc(roc.train), 3)),
                   paste0("Test AUC = ",  round(auc(roc.test),  3))),
        col = c("blue", "red"), lwd = 3, cex = 1.5)
-# dev.off()
+dev.off()
 
 # PR 曲线需要正类概率值 + 实际标签（1表示正类）
 # Suppressed == 1 是抑制苗 → 为正类
@@ -97,7 +108,9 @@ plot(pr.train, col = "blue", lwd = 3, auc.main = FALSE,
      cex.lab = 2.2, cex.axis = 2.2, main = "", xlim = c(0, 1), ylim = c(0, 1))
 # 添加测试集 PR 曲线
 plot(pr.test, col = "red", lwd = 3, add = TRUE)
-abline(a = 1, b = -1, col = "gray", lty = 2, lwd = 2)
+# [修订 CH7-180] PR曲线的无技巧基线为相应数据集的阳性率，而不是对角线
+abline(h = mean(train$Suppressed == "1"), col = "blue", lty = 2)
+abline(h = mean(test$Suppressed == "1"), col = "red", lty = 2)
 legend("bottomright",
        legend = c(paste0("Train AUC = ", round(pr.train$auc.integral, 3)),
                   paste0("Test AUC = ",  round(pr.test$auc.integral, 3))),

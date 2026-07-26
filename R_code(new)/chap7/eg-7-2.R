@@ -1,15 +1,22 @@
 library(pscl)
-floraPA <- read.csv("data-{floraPA}-7-2.csv", header=TRUE, sep=",")
-attach(floraPA)
+floraPA <- read.csv("data-{floraPA}-7-2.csv", header = TRUE, sep = ",")
+# [修订 CH7-095] 删除attach()，统一通过data参数传入数据
 
 ################（1） 零膨胀模型 ####################
+# 注意：pine为0/1二元响应，不含正计数强度信息，以下零膨胀模型
+# 仅作为“模型设定诊断”示例，说明误用计数模型时出现的异常结果。
 model.zif <- zeroinfl(pine ~ temperature, dist = "poisson", data = floraPA)
 summary(model.zif)
+
+# [修订 CH7-125, CH7-126, CH7-129] 二元响应的实际分析应改用二项Logistic回归
+model.binary <- glm(pine ~ temperature,
+                    family = binomial(link = "logit"), data = floraPA)
+summary(model.binary)
 
 pre.response <- predict(model.zif, type = "response")
 head(pre.response)
 pre.prob <- predict(model.zif, type = "prob")
-head(pre.prob)
+head(pre.prob, n = 3)
 pre.count <- predict(model.zif, type = "count")
 head(pre.count)
 pre.zero <- predict(model.zif, type = "zero")
@@ -29,12 +36,12 @@ head(pre.prob)
 round(vcov(model.zif), 4)
 
 
-temperaturePoints <- seq(min(temperature), max(temperature), by = 0.01)
+temperaturePoints <- seq(min(floraPA$temperature), max(floraPA$temperature), by = 0.01)
 predictions <- predict(model.zif, list(temperature = temperaturePoints), type = "response")
 
 
 # pdf("图6.3a.pdf", height = 8, width = 8)
-plot(temperature, pine, las = 1, pch = 16, col = "black", 
+plot(floraPA$temperature, floraPA$pine, las = 1, pch = 16, col = "black",
      cex = 2, cex.axis = 1.8, cex.lab = 1.8,
      xlab = "temperature", ylab = "pine")
 # 绘制拟合曲线
@@ -42,12 +49,13 @@ lines(temperaturePoints, predictions, lwd = 3, col = "blue")
 # dev.off()
 
 par(mar = c(5, 5, 4, 2))
-plot(pre.response, res.response, xlab = "拟合值", 
-     ylab = "残差", pch = 16, col = "black", cex = 1, 
+plot(pre.response, res.response, xlab = "拟合值",
+     ylab = "残差", pch = 16, col = "black", cex = 1,
      cex.lab = 1.8, cex.axis = 1.8)
 abline(h = 0, col = "red")
 
 #################### （2） Hurdle模型 #################
+# 同样仅保留为模型设定诊断示例；二元响应不用于Hurdle推断
 model.hurdle <- hurdle(pine ~ temperature, dist = "poisson", data = floraPA)
 summary(model.hurdle)
 
@@ -64,7 +72,7 @@ pR2(model.hurdle)
 
 
 predictions <- predict(model.hurdle, list(temperature = temperaturePoints), type = "response")
-plot(temperature, pine, las = 1, pch = 16, col = "black", 
+plot(floraPA$temperature, floraPA$pine, las = 1, pch = 16, col = "black",
      cex = 2, cex.axis = 1.8, cex.lab = 1.8,
      xlab = "temperature", ylab = "pine")
 # 绘制拟合曲线
@@ -74,7 +82,7 @@ res.response <- residuals(model.hurdle, type = "response")
 pre.response <- predict(model.hurdle, type = "response")
 
 par(mar = c(5, 5, 4, 2))
-plot(pre.response, res.response, xlab = "拟合值", 
-     ylab = "残差", pch = 16, col = "black", cex = 1, 
+plot(pre.response, res.response, xlab = "拟合值",
+     ylab = "残差", pch = 16, col = "black", cex = 1,
      cex.lab = 1.8, cex.axis = 1.8)
 abline(h = 0, col = "red")
