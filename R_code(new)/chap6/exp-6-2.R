@@ -9,6 +9,7 @@ library(dplyr)
 
 data('picea')
 
+# 从 picea 数据框中删除列 X, Y, Z
 picea <- picea %>% select(-X, -Y, -Z, -`LIDAR-X`, -`LIDAR-Y`, -PLOT1, -OBS, -PLOT)
 picea <- apply(picea[, !colnames(picea) %in% c("plot")], 2, function(x) {
   (x - min(x)) / (max(x) - min(x))})
@@ -16,9 +17,6 @@ picea <- as.data.frame(picea)
 
 # 查看数据结构
 # str(picea)
-
-# 从 picea 数据框中删除列 X, Y, Z
-picea <- picea %>% select(-X, -Y, -Z, -`LIDAR-X`, -`LIDAR-Y`, -Plot1, -Obs)
 
 # 绘制相关性热图
 ggcorrplot(cor(picea), hc.order = TRUE, type = "lower", outline.color = "white",
@@ -29,6 +27,8 @@ ggcorrplot(cor(picea), hc.order = TRUE, type = "lower", outline.color = "white",
 
 # 拟合
 model.picea <- lm(LH ~ ., data = picea)
+aliased.coef <- names(coef(model.picea))[is.na(coef(model.picea))]
+aliased.coef
 #plot(model.picea)
 # 查看模型摘要
 #summary(model.picea)

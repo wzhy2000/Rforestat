@@ -13,7 +13,7 @@ fit5.2=loess(CW~D,span=.5,data=data1)
 summary(fit5.2)
 lines(x.grid,predict(fit5.1,data.frame(D=x.grid)),lwd=2,col="red")
 lines(x.grid,predict(fit5.2,data.frame(D=x.grid)),lwd=2,col="blue")
-legend("topright",legend=c("Span=0.2","Span=0.5"),col=c("red","blue"),lty=1,lwd=2,cex=.8)
+legend("topright",legend=c("Span=0.1","Span=0.5"),col=c("red","blue"),lty=1,lwd=2,cex=.8)
 
 xlims <- range(larch$D)
 x.seq <- seq(from = xlims[1], to = xlims[2])

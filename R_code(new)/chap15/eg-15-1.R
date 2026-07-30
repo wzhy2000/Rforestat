@@ -221,17 +221,28 @@ reg.nzv
 # （2）共线性检验
 reg.cor.matrix <- cor(reg.train.num)
 library(corrplot)
+
+pdf("土壤CO2通量数据集特征之间相关性图.pdf", width = 8, height = 6)
+gray.cols <- colorRampPalette(
+  c("white", "gray50", "black")
+)(200)
+
 corrplot(
   reg.cor.matrix,
   order = "hclust",
   method = "circle",
   type = "full",
-  addCoef.col = "red",
+  col = gray.cols,
+  cl.lim = c(-1, 1),
+  addCoef.col = "black",
   number.cex = 1.5,
   tl.cex = 1.5,
   tl.col = "black",
-  cl.cex = 1.5
+  cl.cex = 1.5,
+  addgrid.col = "gray70"
 )
+dev.off()
+
 
 reg.high.corr <- findCorrelation(reg.cor.matrix, cutoff = 0.6)
 reg.high.corr
@@ -515,7 +526,7 @@ reg.pre.selected.test <- predict(reg.nls.model, newdata = reg.test)
 evaluate.regression(reg.test$log.efflux, reg.pre.selected.test)
 
 reg.residuals.train <- reg.train$log.efflux - reg.pre.selected.train
-pdf("CO2通量-土壤体积含水量train.pdf", width = 10, height = 6, family = "GB1")
+# pdf("CO2通量-土壤体积含水量train.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.train$vwc,
@@ -525,10 +536,10 @@ plot(
   cex.lab = 1.8,
   cex.axis = 1.8
 )
-dev.off()
+# dev.off()
 
 reg.residuals.test <- reg.test$log.efflux - reg.pre.selected.test
-pdf("CO2通量-土壤体积含水量test.pdf", width = 10, height = 6, family = "GB1")
+# pdf("CO2通量-土壤体积含水量test.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.test$vwc,
@@ -538,12 +549,12 @@ plot(
   cex.lab = 1.8,
   cex.axis = 1.8
 )
-dev.off()
+# dev.off()
 
 reg.coef.summary <- coef(reg.lm.model$finalModel)
 print(reg.coef.summary)
 
-pdf("CO2训练集残差图.pdf", width = 10, height = 6, family = "GB1")
+# pdf("CO2训练集残差图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.pre.selected.train,
@@ -554,9 +565,9 @@ plot(
   cex.axis = 1.8
 )
 abline(h = 0, col = "red", lty = 2)
-dev.off()
+# dev.off()
 
-pdf("CO2测试集残差图.pdf", width = 10, height = 6, family = "GB1")
+# pdf("CO2测试集残差图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.pre.selected.test,
@@ -567,9 +578,9 @@ plot(
   cex.axis = 1.8
 )
 abline(h = 0, col = "red", lty = 2)
-dev.off()
+# dev.off()
 
-pdf("CO2训练集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
+# pdf("CO2训练集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.train$log.efflux,
@@ -583,9 +594,9 @@ plot(
   cex.axis = 1.8
 )
 abline(0, 1, col = "red", lwd = 2, lty = 2)
-dev.off()
+# dev.off()
 
-pdf("CO2测试集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
+# pdf("CO2测试集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.test$log.efflux,
@@ -599,7 +610,7 @@ plot(
   cex.axis = 1.8
 )
 abline(0, 1, col = "red", lwd = 2, lty = 2)
-dev.off()
+# dev.off()
 
 print(reg.rf.model$resample)
 reg.resample.long <- reg.rf.model$resample %>%
@@ -614,7 +625,17 @@ ggplot(reg.resample.long, aes(x = Metric, y = Value)) +
   geom_boxplot(fill = "lightblue", width = 0.6) +
   geom_jitter(width = 0.2, size = 2, color = "darkblue", alpha = 0.7) +
   labs(x = "性能指标", y = "") +
+  theme_bw() +
   theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(
+      fill = "white",
+      colour = "black"
+    ),
+    plot.background = element_rect(
+      fill = "white",
+      colour = NA
+    ),
     axis.title.x = element_text(size = 26, color = "black"),
     axis.title.y = element_text(size = 26, color = "black"),
     axis.text.x = element_text(size = 26, color = "black"),

@@ -1,16 +1,19 @@
 library("systemfit")
 data(ppine)
 
-hg.log.formula <- log(hg) ~ log(tht) + tht^2 + elev + cr
+hg.log.formula <- log(hg) ~ log(tht) + I(tht^2) + elev + cr
 dg.log.formula <- log(dg) ~ log(dbh) + hg + cr + ba
 labels <- list("height.log", "diameter.log")
 inst <- ~ log(tht) + log(dbh) + elev + cr + ba
 
 
+old_options <- options()
 options(digits = 5)
-model <- list(hg.log.formula, dg.log.formula)
-model.ols <- systemfit( model, "OLS", data = ppine)
-model.sur <- systemfit( model, "SUR", data = ppine)
+model <- list(height.log = hg.log.formula,
+              diameter.log = dg.log.formula)
+model.ols <- systemfit(model, "OLS", data = ppine)
+model.sur <- systemfit(model, "SUR", data = ppine)
+
 
 print(model.ols)
 
@@ -24,6 +27,9 @@ summary(model.ols$eq[[2]])
 model.2sls <- systemfit( model, "2SLS", data = ppine, inst=inst)
 print(model.2sls)
 model.3sls <- systemfit( model, "3SLS", data = ppine, inst=inst)
+print(model.3sls)
+
+
 summary(model.3sls)
 
 R.restr <- matrix(0, 1, 10)
@@ -42,21 +48,20 @@ start.values <- c(h0 = -0.5, h1 = 0.5, h2 = -0.001, h3 = 0.0001, h4 = 0.08,
                   d0 = -0.5, d1 = 0.009, d2 = 0.25, d3 = 0.005, d4 = -0.02)
 
 
-model <- list(hg.formula, dg.formula)
-nmodel.2sls <- nlsystemfit("2SLS", model, start.values, data = ppine,
+model.nonlinear <- list(hg.formula, dg.formula)
+nmodel.2sls <- nlsystemfit("2SLS", model.nonlinear, start.values, data = ppine,
                            eqnlabels = labels, inst = inst)
 summary(nmodel.2sls)
-
+nmodel.2sls$nlmest$code
 
 cbind(b = nmodel.2sls$b, se = nmodel.2sls$se, t = nmodel.2sls$t, p = nmodel.2sls$p)
 
-ypred.2sls <- predict(model.2sls, data=ppine)
-ypred.ols <- predict(model.ols, data=ppine)
-diff <- ypred.2sls - ypred.ols
-summary(diff)
+fitted.linear.2sls <- predict(model.2sls, newdata = ppine)
+fitted.linear.ols <- predict(model.ols, newdata = ppine)
+fit_diff <- fitted.linear.2sls - fitted.linear.ols
+summary(fit_diff)
 
-
-predict.nlsystemfit <- function(model, new_data) {
+predict_nlsystemfit_example <- function(model, new_data) {
   coefs <- model$b 
   new_data$hg <- exp(coefs["h0"] + coefs["h1"] * log(new_data$tht) + coefs["h2"] * 
                        new_data$tht^2 + coefs["h3"] * new_data$elev + coefs["h4"] * new_data$cr)
@@ -64,12 +69,12 @@ predict.nlsystemfit <- function(model, new_data) {
                        new_data$hg + coefs["d3"] * new_data$cr + coefs["d4"] * new_data$ba)
   return(new_data[, c("hg", "dg")])
 }
-ypred.2sls <- predict.nlsystemfit(nmodel.2sls, ppine)
+fitted.nonlinear.2sls <- predict_nlsystemfit_example(nmodel.2sls, ppine)
 
-summary(ppine[c("hg", "dg")] - ypred.2sls ) 
+summary(ppine[c("hg", "dg")] - fitted.nonlinear.2sls) 
 
-restrict1 <- "eq2_cr  -  eq1_cr = 0"
-linearHypothesis(model.ols, restrict1)
+restrict1 <- "diameter.log_cr - height.log_cr = 0"
+car::linearHypothesis(model.ols, restrict1)
 
 hausman.systemfit(model.2sls, model.3sls)
 

@@ -5,12 +5,13 @@ library(nlme)
 # 其中AGB是Stem，Branch，Foliage和Fruit之和
 data(picea)
 picea$AGB <- picea$STEM + picea$BRANCH + picea$FOLIAGE + picea$FRUIT
-attach(picea)
 
 set.seed(123)
-datapartde <-sample(2, nrow(picea), replace = TRUE, prob = c(0.7,0.3))
-train.data <- picea[datapartde == 1, ]
-test.data <- picea[datapartde == 2, ]
+train.index <- sample(
+  seq_len(nrow(picea)), size = floor(0.7 * nrow(picea))
+)
+train.data <- picea[train.index, ]
+test.data <- picea[-train.index, ]
 
 dim(train.data)
 dim(test.data)
@@ -32,11 +33,16 @@ cat(AIC(model.exp), BIC(model.exp))
 FittingEvaluationIndex(predict(model.exp, newdata = train.data), train.data$AGB)
 FittingEvaluationIndex(predict(model.exp, newdata = test.data), test.data$AGB)
 
-# Richard
-model.richard <- nls(AGB ~ a * (1 - exp(-b * D0 + c * H0)), start = c(a = 1, b = -0.1, c = 0.1), 
-            data = train.data)
-summary(model.richard)
-cat(AIC(model.richard), BIC(model.richard))
-FittingEvaluationIndex(predict(model.richard, newdata = train.data), train.data$AGB)
-FittingEvaluationIndex(predict(model.richard, newdata = test.data), test.data$AGB)
+# 指数饱和模型：胸径采用饱和响应，树高采用线性项
+model.saturation <- nls(
+  AGB ~ a * (1 - exp(-b * D0^c)) + d * H0,
+  start = list(a = 1000, b = 3e-6, c = 3, d = 5),
+  algorithm = "port", lower = c(a = 0, b = 0, c = 0, d = 0),
+  control = nls.control(maxiter = 1000),
+  data = train.data
+)
+summary(model.saturation)
+cat(AIC(model.saturation), BIC(model.saturation))
+FittingEvaluationIndex(predict(model.saturation, newdata = train.data), train.data$AGB)
+FittingEvaluationIndex(predict(model.saturation, newdata = test.data), test.data$AGB)
 

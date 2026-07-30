@@ -1,23 +1,17 @@
 library(forestat)
+library(MASS)
 data("birch")
 
 # 假设 birch 是包含胸径 D 和树高 H 的数据框
 # 创建自启动函数
 monomolecularInit <- function(mCall, LHS, data, ...) {
-  # 提取胸径 D 和树高 H 数据
-  xy <- sortedXyData(mCall[["D"]], LHS, data)  # 确保数据按 D 排序
-  
-  a.init <- max(xy[, "y"], na.rm = TRUE)  # a 设为 y 的最大值
-  # 线性拟合的初步估计
-  epsilon <- 10e-6
-  # 确保 log 内的值为正且为数值型
-  log.data <- log(pmax(epsilon, (max(xy[, "y"]) - xy[, "y"]) / max(xy[, "y"])))
-  lmFit <- lm(log.data ~ xy[, "x"])  # 拟合对数转换后的数据
-  coefs <- coef(lmFit)
-  
-  b.init <- -coef(lmFit)[2]  # b 从线性拟合的斜率计算得到
-  
-  # 返回初始值
+  xy <- sortedXyData(mCall[["D"]], LHS, data)
+  ymax <- max(xy[["y"]], na.rm = TRUE)
+  a.init <- 1.05 * ymax
+  epsilon <- 1e-6
+  log.data <- log(pmax(epsilon, (a.init - xy[["y"]]) / a.init))
+  lmFit <- lm(log.data ~ xy[["x"]])
+  b.init <- -unname(coef(lmFit)[2])
   value <- c(a = a.init, b = b.init)
   names(value) <- mCall[c("a", "b")]
   value
@@ -44,14 +38,19 @@ model.nls <- nls(H ~ a * (1 - exp(-D)), data = birch, start = list(a = 1))
 # 计算似然比统计量
 logLik1 <- logLik(model.selfnls)
 logLik0 <- logLik(model.nls)
-LTR <- 2 * (logLik1 - logLik0)
+LRT <- 2 * (as.numeric(logLik1) - as.numeric(logLik0))
 
 # 计算自由度差
-df <- df.residual(model.nls) - df.residual(model.selfnls)
+df <- attr(logLik1, "df") - attr(logLik0, "df")
 
 # 计算 p 值
-p.value <- 1 - pchisq(LTR, df)
-print(p.value)
+p.value <- pchisq(LRT, df = df, lower.tail = FALSE)
+
+cat("p-value =", format.pval(
+  p.value,
+  digits = 3,
+  eps = .Machine$double.eps
+), "\n")
 
 
 AIC(model.selfnls)

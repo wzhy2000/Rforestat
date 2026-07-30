@@ -4,49 +4,55 @@ library(MASS)
 library(nlme)
 
 ###########(1)数据集划分 ###################
-data(birch)
-pt <- unique(birch$PLOT)
-hdo.list <- lapply(pt, function(p) {
-  max(birch[birch$PLOT == p, "H"], na.rm = TRUE)
-})
-hdo.df <- data.frame(PLOT = pt, hdo = unlist(hdo.list))
-data <- birch %>% left_join(hdo.df, by = "PLOT")
 set.seed(123)
-# 划分索引，70% 的数据用于训练
-train.index <- sample(1:nrow(data), size = 0.7 * nrow(data))
-# 创建训练集和测试集
-train.data <- data[train.index, ]
-test.data <- data[-train.index, ]
-
+plot.id <- unique(birch$PLOT)
+train.plot <- sample(
+  plot.id, size = floor(0.7 * length(plot.id))
+)
+hmax.df <- birch %>%
+  group_by(PLOT) %>%
+  summarise(hmax = max(H, na.rm = TRUE), .groups = "drop")
+model.data <- birch %>% left_join(hmax.df, by = "PLOT")
+train.data <- model.data[model.data$PLOT %in% train.plot, ]
+test.data <- model.data[!model.data$PLOT %in% train.plot, ]
 #############(2) 模型构建 ################
 
 myInitial <- function(mCall, LHS, data, ...) {
   D <- data[["D"]]
   y <- data[["H"]]
-  hdo <- data[["hdo"]]
-  b1 <- max(y, na.rm = TRUE) / max(hdo, na.rm = TRUE) 
-  b2 <- coef(lm(log(y) ~ log(hdo)))[2]
+  hmax <- data[["hmax"]]
+  ok <- is.finite(D) & is.finite(y) & is.finite(hmax) &
+    D > 0 & y > 0 & hmax > 0
+  D <- D[ok]
+  y <- y[ok]
+  hmax <- hmax[ok]
+  b1 <- max(y) / max(hmax)
+  b2 <- unname(coef(lm(log(y) ~ log(hmax)))[2])
   b3 <- 1 / mean(D, na.rm = TRUE)
   b4 <- sd(y, na.rm = TRUE) / mean(y, na.rm = TRUE)
   value <- c(b1 = b1, b2 = b2, b3 = b3, b4 = b4)
   names(value) <- mCall[c("b1", "b2", "b3", "b4")]
   return(value)
 }
+mySelfStart <- selfStart(~ 1.3 + b1 * hmax^b2 * (1 - exp(-b3 * D))^b4,
+                         initial = myInitial, parameters = c("b1", "b2", "b3", "b4"))
+start <- getInitial(H ~ mySelfStart(hmax = hmax, D = D, b1, b2, b3, b4),
+                    data = train.data)
+start
 
-mySelfStart <- selfStart(~ 1.3 + b1 * hdo^b2 * (1 - exp(-b3 * D))^b4, initial = myInitial, 
-                         parameters = c("b1", "b2", "b3", "b4"))
 
-start <- getInitial(H ~ mySelfStart(hdo = hdo, D = D, b1, b2, b3, b4), data = train.data)
-
-deriv3.formula <- deriv3(~ 1.3 + b1 * hdo^b2 * (1 - exp(-b3 * D))^b4, c("b1", "b2", "b3", "b4"), function(hdo, D, b1, b2, b3, b4) NULL)
-
-model.nls2 <- nls(H ~ deriv3.formula(hdo, D, b1, b2, b3, b4), data = train.data, 
-                  start = list(b1 = start[1], b2 = start[2], b3 = start[3], b4 = start[4]))
-
-model.gnls2 <- gnls(H ~ deriv3.formula(hdo, D, b1, b2, b3, b4), data = train.data, 
-                    params = list(b1 ~ 1, b2 ~ 1, b3 ~ 1, b4 ~ 1),  # 指定参数结构
-                    start = list(b1 = start[1], b2 = start[2], b3 = start[3], b4 = start[4]),
-                    weights = varPower(form = ~ fitted(.)))
+deriv3.formula <- deriv3(~ 1.3 + b1 * hmax^b2 * (1 - exp(-b3 * D))^b4,
+                         c("b1", "b2", "b3", "b4"),
+                         function(hmax, D, b1, b2, b3, b4) NULL)
+model.nls2 <- nls(H ~ deriv3.formula(hmax, D, b1, b2, b3, b4), data = train.data,
+                  start = list(b1 = unname(start[1]), b2 = unname(start[2]),
+                               b3 = unname(start[3]), b4 = unname(start[4])))
+model.gnls2 <- nlme::gnls(
+  H ~ deriv3.formula(hmax, D, b1, b2, b3, b4), data = train.data,
+  params = list(b1 ~ 1, b2 ~ 1, b3 ~ 1, b4 ~ 1),
+  start = c(b1 = unname(start[1]), b2 = unname(start[2]),
+            b3 = unname(start[3]), b4 = unname(start[4])),
+  weights = nlme::varPower(form = ~ fitted(.)))
 
 
 summary(model.nls2)
@@ -100,8 +106,8 @@ FittingEvaluationIndex(pre.nls2, test.data$H)
 ############### (6) 可视化 ###############
 
 pdf("9.9fit.plot.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5, 5, 4, 2), mgp = c(3.5, 1, 0))
-plot(pre.nls2, test.data$H, xlab = "拟合树高(m)", ylab = "树高(m)", las = 1, 
+par(mar = c(5, 6, 4, 2), mgp = c(3.5, 1, 0))
+plot(pre.nls2, test.data$H, xlab = "预测树高(m)", ylab = "观测树高(m)", las = 1, 
      pch = 16, col = "black", cex = 1, 
      cex.lab = 2.5, cex.axis = 2.5)
 dev.off()
@@ -109,7 +115,7 @@ dev.off()
 # 训练集残差图
 res.train <- residuals(model.nls2, type = "response")
 pdf("9.10Residuals.train.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5, 5, 4, 2), mgp = c(3.5, 1, 0), mfrow = c(1, 1))
+par(mar = c(5, 6, 4, 2), mgp = c(3.5, 1, 0), mfrow = c(1, 1))
 plot(fitted(model.nls2), res.train, xlab = "拟合值(m)", 
      ylab = "残差(m)", pch = 16, col = "black", cex = 1, 
      cex.lab = 2.5, cex.axis = 2.5)
@@ -120,7 +126,7 @@ dev.off()
 # 测试集残差图
 res.test <- test.data$H - pre.nls2
 pdf("9.11Residuals.test.pdf", width = 8, height = 8, family = "GB1")
-par(mar = c(5, 5, 4, 2), mgp = c(3.5, 1, 0))
+par(mar = c(5, 6, 4, 2), mgp = c(3.5, 1, 0))
 plot(pre.nls2, res.test, xlab = "拟合值(m)", 
      ylab = "残差(m)", pch = 16, col = "black", cex = 1, 
      cex.lab = 2.5, cex.axis = 2.5)

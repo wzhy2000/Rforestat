@@ -136,16 +136,25 @@ cls.nzv
 # （2）基于训练集的共线性筛选
 cls.cor.matrix <- cor(cls.train.num)
 library(corrplot)
+
+# pdf("ASTER 影像数据集特征之间相关性图.pdf", width = 8, height = 6)
+gray.cols <- colorRampPalette(
+  c("white", "gray50", "black")
+)(200)
 corrplot(
   cls.cor.matrix,
   order = "hclust",
   method = "circle",
   type = "full",
+  col = gray.cols,
+  cl.lim = c(-1, 1),
   number.cex = 1,
   tl.cex = 1,
   tl.col = "black",
-  cl.cex = 1
+  cl.cex = 1,
+  addgrid.col = "gray70"
 )
+# dev.off()
 
 cls.high.corr <- findCorrelation(cls.cor.matrix, cutoff = 0.6)
 cls.high.corr
@@ -288,12 +297,17 @@ roc_curve(cls.df.cv, obs, d, h, o, s) %>%
   facet_wrap(vars(.level)) +
   theme_bw() +
   theme(
+    panel.grid = element_blank(),
+    strip.background = element_rect(
+      fill = "white",
+      colour = "black"
+    ),
+    strip.text = element_text(size = 18, colour = "black"),
     plot.title = element_text(size = 18),
     axis.title = element_text(size = 18),
     axis.text = element_text(size = 18),
     legend.title = element_text(size = 18),
-    legend.text = element_text(size = 18),
-    strip.text = element_text(size = 18)
+    legend.text = element_text(size = 18)
   )
 dev.off()
 
@@ -304,12 +318,17 @@ pr_curve(cls.df.cv, obs, d, h, o, s) %>%
   facet_wrap(vars(.level)) +
   theme_bw() +
   theme(
+    panel.grid = element_blank(),
+    strip.background = element_rect(
+      fill = "white",
+      colour = "black"
+    ),
+    strip.text = element_text(size = 18, colour = "black"),
     plot.title = element_text(size = 18),
     axis.title = element_text(size = 18),
     axis.text = element_text(size = 18),
     legend.title = element_text(size = 18),
-    legend.text = element_text(size = 18),
-    strip.text = element_text(size = 18)
+    legend.text = element_text(size = 18)
   )
 dev.off()
 

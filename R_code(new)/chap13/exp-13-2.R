@@ -7,16 +7,23 @@ library(tidyr)
 library(forestat)
 
 # 数据加载与预处理
-obj <- load("JFSP_all_df.rda ")
+obj <- load("JFSP_all_df.rda")
 raw <- get(obj)
 
+table(raw$LiveDead, useNA = "ifany")
 seedling <- raw %>% 
   select(Species, LiveDead, heat_load, slope, roughness, wyr1_suVPDmu) %>% 
   mutate(
-    LiveDead = as.integer(LiveDead),
+    LiveDead = case_when(
+      as.character(LiveDead) %in% c("1", "Dead", "dead") ~ 1L,
+      as.character(LiveDead) %in% c("0", "Live", "live", "Alive") ~ 0L,
+      TRUE ~ NA_integer_
+    ),
     Species  = factor(Species)
   ) %>% 
   drop_na()
+stopifnot(all(seedling$LiveDead %in% c(0L, 1L)))
+table(seedling$LiveDead)
 
 
 # pdf("不同存活状态下样本的热负荷分布.pdf", width = 10, height = 6, family = "GB1")
@@ -38,9 +45,14 @@ ggplot(seedling, aes(heat_load, fill = factor(LiveDead))) +
 
 # 数据集划分
 set.seed(123)
-idx <- sample(1:nrow(seedling), 0.7 * nrow(seedling))
+idx <- unlist(lapply(
+  split(seq_len(nrow(seedling)), seedling$LiveDead),
+  function(i) sample(i, floor(0.7 * length(i)))
+))
 train <- seedling[idx, ]
 test <- seedling[-idx, ]
+prop.table(table(train$LiveDead))
+prop.table(table(test$LiveDead))
 
 # 模型构建
 prior.weak <- set_prior("normal(0, 2)", class = "b")
@@ -108,14 +120,14 @@ dev.off()
 
 
 # 模型性能评估
-pre.train <- posterior_predict(bayes.mod, newdata = train) %>% colMeans()
+pre.train <- posterior_epred(bayes.mod, newdata = train) %>% colMeans()
 FittingEvaluationIndex(pre.train, train$LiveDead)
 
 loo.res <- loo(bayes.mod)
 print(loo.res)
 
 # 模型测试
-pre.test <- posterior_predict(bayes.mod, newdata = test) %>% colMeans()
+pre.test <- posterior_epred(bayes.mod, newdata = test) %>% colMeans()
 FittingEvaluationIndex(pre.test, test$LiveDead)
 
 
@@ -145,9 +157,8 @@ pdf("PR贝叶斯.pdf", width = 8, height = 8)
 par(mar = c(6, 6, 2, 2), mgp = c(4, 1, 0))
 plot(pr.train, col = "blue", lwd = 3, auc.main = FALSE,
      cex.lab = 2.2, cex.axis = 2.2, main = "", xlim = c(0, 1), ylim = c(0, 1))
-# 添加测试集 PR 曲线
 plot(pr.test, col = "red", lwd = 3, add = TRUE)
-abline(a = 1, b = -1, col = "gray", lty = 2, lwd = 2)
+abline(h = mean(test$LiveDead), col = "gray", lty = 2, lwd = 2)
 legend("bottomright",
        legend = c(paste0("Train AUC = ", round(pr.train$auc.integral, 3)),
                   paste0("Test AUC = ",  round(pr.test$auc.integral, 3))),
@@ -165,9 +176,8 @@ newdat <- expand_grid(
   wyr1_suVPDmu = median(seedling$wyr1_suVPDmu)
 )
 
-
 # newdat$death_prob <- fitted(bayes.mod, newdata = newdat)[, "Estimate"]
-newdat$death_prob2 <- posterior_predict(bayes.mod, newdata = newdat) %>% colMeans()
+newdat$death_prob <- posterior_epred(bayes.mod, newdata = newdat) %>% colMeans()
 
 pdf("不同物种随热负荷的死亡概率曲线.pdf", width = 12, height = 6, family = "GB1")
 ggplot(newdat, aes(heat_load, death_prob, colour = Species)) +

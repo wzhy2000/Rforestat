@@ -2,22 +2,30 @@
 library(rattle)
 library(e1071)
 data(wine)
-X <- wine[, 2:ncol(wine)]
-y <- wine[, 1]
-set.seed(6)
-train_index <- sample(1:nrow(wine), 0.7 * nrow(wine))
-X_train <- X[train_index, ]
-y_train <- y[train_index]
-X_test <- X[-train_index, ]
-y_test <- y[-train_index]
+set.seed(123)
+# 使用稳健的行索引写法；若需保持类别比例，应改用分层抽样。
+index.train <- sample(seq_len(nrow(wine)), 0.7 * nrow(wine))
+x.train <- wine[index.train, 2:ncol(wine)]
+y.train <- wine[index.train, 1]
+x.test <- wine[-index.train, 2:ncol(wine)]
+y.test <- wine[-index.train, 1]
 
 # 构建朴素贝叶斯模型并训练
-model <- naiveBayes(X_train, as.factor(y_train))
+model <- naiveBayes(x.train, as.factor(y.train))
 print(model)
 
 
 # 预测与评估模型
-y_pred <- predict(model, X_test)
+y.pred <- predict(model, x.test)
+y.pred[1:10]
+head(predict(model, x.test, type = "raw"))
+table(y.pred, y.test)
+
+# 继续使用wine训练数据，与后续输出保持一致。
+model <- naiveBayes(x.train, as.factor(y.train), laplace = 3)
+print(model)
+
+
 accuracy <- mean(y_pred == y_test)
 cat("Model Accuracy:", round(accuracy, 2), "\n")
 

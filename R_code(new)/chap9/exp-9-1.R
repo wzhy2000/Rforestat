@@ -51,7 +51,7 @@ plot.knots <- function(model, splines){
 }
 
 plot.model(larch$D, larch$CW, x.seq, y.preds)
-plot.knots(model.bs, model.bs$model$bs)
+plot.knots(model.bs, stats::model.frame(model.bs)[[2]])
 
 # 自然样条
 model.ns <- lm(CW ~ ns(D, df = 4), data = larch)
@@ -61,21 +61,33 @@ y.preds <- predict(model.ns, newdata = list(D = x.seq), se = TRUE)
 cat(AIC(model.ns), BIC(model.ns))
 FittingEvaluationIndex(predict(model.ns, newdata = larch), larch$CW)
 plot.model(larch$D, larch$CW, x.seq, y.preds)
-plot.knots(model.ns, model.ns$model$ns)
+plot.knots(model.ns, stats::model.frame(model.ns)[[2]])
 
 
 # 光滑样条
 model.ss5 <- smooth.spline(larch$D, larch$CW, df = 5)
-model.ss <- smooth.spline(larch$D, larch$CW, cv = TRUE)
+model.ss <- stats::smooth.spline(larch$D, larch$CW)
 
 FittingEvaluationIndex(predict(model.ss5, larch$D)$y, larch$CW)
 FittingEvaluationIndex(predict(model.ss, larch$D)$y, larch$CW)
 
-y.preds <- list(x = model.ss5$x, y = model.ss5$yin, fit = model.ss5$y )
-res <- (model.ss5$yin - model.ss5$y) / (1 - model.ss5$lev)
-sigma <- sqrt(var(res))
-y.preds$se.fit <- sigma * sqrt(model.ss5$lev)
+set.seed(2026)
+B <- 500
+x.seq <- seq(min(larch$D), max(larch$D), length.out = 100)
+y.fit <- predict(model.ss5, x.seq)$y
+boot.fit <- replicate(B, {
+  idx <- sample.int(nrow(larch), replace = TRUE)
+  fit.b <- stats::smooth.spline(larch$D[idx], larch$CW[idx], df = 5)
+  predict(fit.b, x.seq)$y
+})
+y.preds <- list(
+  x = x.seq,
+  fit = y.fit,
+  se.fit = apply(boot.fit, 1, stats::sd)
+)
+pdf("图8.2g光滑样条（df=5）.pdf", width = 8, height = 4, family = "GB1")
 plot.model(larch$D, larch$CW, y.preds$x, y.preds)
+dev.off()
 
 # 局部回归
 model.lo1 <- loess(CW ~ D, span = 0.1, data = larch)
