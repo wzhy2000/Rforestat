@@ -4,14 +4,14 @@ data(larch)
 names(larch)
 
 # 1 胸径和树高的分布分析
-pdf("图4.4a.pdf", width = 8, height = 6, family = "GB1")
+# pdf("图4.4a.pdf", width = 8, height = 6, family = "GB1")
 par(mar = c(5, 5.5, 4, 2), mgp = c(3.5, 1, 0))
 hist(larch$H, breaks = 100, xlab = "树高(m)", ylab = "频数", main =  "", cex.axis = 2.2, cex.lab = 2.2)
-dev.off()
-pdf("图4.4b.pdf", width = 8, height = 6, family = "GB1")
+# dev.off()
+# pdf("图4.4b.pdf", width = 8, height = 6, family = "GB1")
 par(mar = c(5, 5.5, 4, 2), mgp = c(3.5, 1, 0))
 hist(larch$D, breaks = 100, xlab = "胸径(cm)", ylab = "频数", main =  "", cex.axis = 2.2, cex.lab = 2.2)
-dev.off()
+# dev.off()
 # 2 正态性检验
 plots <- sort(unique(larch$PLOT))
 p.values <- lapply(plots, function(x) {
@@ -88,5 +88,5 @@ summary(model.aov.H)
 summary(model.aov.D)
 
 # 7 协方差分析
-model.cov <- aov(H ~ SD + D)
+model.cov <- aov(H ~ D + SD)
 summary(model.cov)

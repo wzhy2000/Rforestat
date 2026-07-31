@@ -63,6 +63,18 @@ resid_df <- data.frame(
   Residuals = c(as.vector(modele1.sur$resids),
                 as.vector(modele2.sur$resids))
 )
-p <- ggplot(resid_df, aes(Equation, Residuals, fill = Method)) +
-  geom_boxplot()
+p <- ggplot(
+  resid_df,
+  aes(Equation, Residuals, fill = Method)
+) +
+  geom_boxplot(colour = "black") +
+  scale_fill_manual(values = c("white", "gray70")) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.title = element_text(size = 18, colour = "black"),
+    axis.text = element_text(size = 16, colour = "black"),
+    legend.title = element_text(size = 16, colour = "black"),
+    legend.text = element_text(size = 14, colour = "black")
+  )
 ggsave("图11.1.pdf", plot = p, height = 5, units = "in")

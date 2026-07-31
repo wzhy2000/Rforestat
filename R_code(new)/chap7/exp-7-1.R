@@ -8,20 +8,23 @@ data(hanover.whitepine)
 str(hanover.whitepine)
 summary(hanover.whitepine$length)
 
-# pdf("白松主干长度分布.pdf", width = 8, height = 6, family = "GB1")
+pdf("白松主干长度分布.pdf", width = 8, height = 6, family = "GB1")
 ggplot(hanover.whitepine, aes(length)) +
   geom_histogram(bins = 15, fill = "steelblue", colour = "white") +
-  # [修订 CH7-146] 轴标签改为“子代平均上胚轴长度”
   labs(x = "子代平均上胚轴长度(cm)", y = "数目") +
+  theme_minimal() + 
   theme(
-    axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
-    axis.title.y = element_text(size = 26, color = "black"),  # y轴标题字体大小
-    axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
-    axis.text.y = element_text(size = 26, color = "black"),   # y轴文本字体大小
-    # panel.grid.major = element_blank(),                         # 去掉主网格线
-    # panel.grid.minor = element_blank()
+    axis.title.x = element_text(size = 26, color = "black"),
+    axis.title.y = element_text(size = 26, color = "black"),
+    axis.text.x = element_text(size = 26, color = "black"),
+    axis.text.y = element_text(size = 26, color = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    
+    axis.line = element_line(color = "black", linewidth = 0.8),
+    axis.ticks = element_line(color = "black")
   )
-# dev.off()
+dev.off()
 
 # # 数据集划分
 train.data <- subset(hanover.whitepine, rep != "R4")

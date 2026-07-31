@@ -51,9 +51,9 @@ par(mar = c(5, 5, 4, 2), mgp = c(3, 1, 0))
 plot(test$`H(m)`, test$`Crown(m2)`, pch = 16, col = "black",
      xlab = "树高(m)", ylab = "冠层面积(m2)", cex.lab = 2.5, cex.axis = 2.5)
 lines(sort(test$`H(m)`),
-      predict(lm.model, newdata = test[order(test$`H(m)`), ]), col = "blue", lwd = 2)
+      predict(lm.model, newdata = test[order(test$`H(m)`), ]), col = "blue", lwd = 2, lty = 1)
 lines(sort(test$`H(m)`),
-      predict(nls.model, newdata = test[order(test$`H(m)`), ]), col = "red", lwd = 2)
-legend("topleft", legend = c("线性", "非线性"), col = c("blue", "red"), lwd = 2, cex = 2.5)
+      predict(nls.model, newdata = test[order(test$`H(m)`), ]), col = "red", lwd = 2, lty = 2)
+legend("topleft", legend = c("线性", "非线性"), col = c("blue", "red"), lty = c(1, 2), lwd = 2, cex = 2.5)
 
 dev.off()

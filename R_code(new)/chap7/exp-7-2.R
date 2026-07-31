@@ -84,10 +84,10 @@ confusionMatrix(pre.class.test, test$Suppressed, positive = "1")
 roc.train <- roc(train$Suppressed, pre.prob.train)
 roc.test <- roc(test$Suppressed, pre.prob.test)
 pdf("roc森林培育.pdf", width = 8, height = 8)
-plot(roc.train, col = "blue", lwd = 3, legacy.axes = TRUE,
+plot(roc.train, col = "blue", lwd = 3, ,lty = 1, legacy.axes = TRUE,
      mar = c(6, 6, 2, 2), mgp = c(4, 1, 0),
      cex.lab = 2.2, cex.axis = 2.2)
-plot(roc.test, col = "red", lwd = 3, add = TRUE)
+plot(roc.test, col = "red", lwd = 3, lty = 2, add = TRUE)
 legend("bottomright",
        legend = c(paste0("Train AUC = ", round(auc(roc.train), 3)),
                   paste0("Test AUC = ",  round(auc(roc.test),  3))),
@@ -104,10 +104,10 @@ pr.test <- pr.curve(scores.class0 = pre.prob.test[test$Suppressed == 1],
                      curve = TRUE)
 pdf("PR森林培育.pdf", width = 8, height = 8)
 par(mar = c(6, 6, 2, 2), mgp = c(4, 1, 0))
-plot(pr.train, col = "blue", lwd = 3, auc.main = FALSE,
+plot(pr.train, col = "blue", lwd = 3, lty = 1, auc.main = FALSE,
      cex.lab = 2.2, cex.axis = 2.2, main = "", xlim = c(0, 1), ylim = c(0, 1))
 # 添加测试集 PR 曲线
-plot(pr.test, col = "red", lwd = 3, add = TRUE)
+plot(pr.test, col = "red", lwd = 3, lty = 2, add = TRUE)
 # [修订 CH7-180] PR曲线的无技巧基线为相应数据集的阳性率，而不是对角线
 abline(h = mean(train$Suppressed == "1"), col = "blue", lty = 2)
 abline(h = mean(test$Suppressed == "1"), col = "red", lty = 2)

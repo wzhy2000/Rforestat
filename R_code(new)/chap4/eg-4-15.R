@@ -17,10 +17,10 @@ coef0 <- coef(fit0)
 sigma0 <- sd(residuals(fit0))
 
 
-stat_fun <- function(data, indices) {
-  fit <- try(nls(y ~ a * exp(b * x), data = data[indices, ],
+stat_fun <- function(data) {
+  fit <- try(nls(y ~ a * exp(b * x), data = data, 
                  start = list(a = 1, b = 0.1)), silent = TRUE)
-  if (inherits(fit, "try-error")) return(c(a = NA, b = NA))
+  if (inherits(fit, "try-error")) {return(c(a = NA, b = NA))}
   coef(fit)
 }
 

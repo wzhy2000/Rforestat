@@ -26,22 +26,34 @@ stopifnot(all(seedling$LiveDead %in% c(0L, 1L)))
 table(seedling$LiveDead)
 
 
-# pdf("不同存活状态下样本的热负荷分布.pdf", width = 10, height = 6, family = "GB1")
+pdf("不同存活状态下样本的热负荷分布.pdf", width = 10, height = 6, family = "GB1")
 ggplot(seedling, aes(heat_load, fill = factor(LiveDead))) +
-  geom_density(alpha = 0.4) +
-  labs(x = "热负荷", y = "密度", fill = "死亡(1) / 存活(0)") + 
+  geom_density(
+    aes(linetype = factor(LiveDead)),
+    alpha = 0.4,
+    colour = "black"
+  ) +
+  scale_fill_grey(start = 1, end = 0.65) +
+  scale_linetype_manual(
+    values = c("solid", "dashed"),
+    guide = "none"
+  ) +
+  labs(
+    x = "热负荷",
+    y = "密度",
+    fill = "死亡(1) / 存活(0)"
+  ) +
+  theme_classic() +
   theme(
-    axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
-    axis.title.y = element_text(size = 26, color = "black"),  # y轴标题字体大小
-    axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
-    axis.text.y = element_text(size = 26, color = "black"),   # y轴文本字体大小
+    axis.title.x = element_text(size = 26, colour = "black"),
+    axis.title.y = element_text(size = 26, colour = "black"),
+    axis.text.x = element_text(size = 26, colour = "black"),
+    axis.text.y = element_text(size = 26, colour = "black"),
     legend.text = element_text(size = 26),
     legend.title = element_text(size = 26)
-    # panel.grid.major = element_blank(),
-    # panel.grid.minor = element_blank()
   )
 
-# dev.off()
+dev.off()
 
 # 数据集划分
 set.seed(123)
@@ -108,12 +120,15 @@ ggplot(OR.tbl, aes(reorder(variable, OR), OR)) +
   geom_hline(yintercept = 1, linetype = 2) +
   labs(x = NULL, y = "OR") + 
   theme(
-    axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
-    axis.title.y = element_text(size = 26, color = "black"),  # y轴标题字体大小
-    axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
-    axis.text.y = element_text(size = 26, color = "black"),   # y轴文本字体大小
-    # panel.grid.major = element_blank(),                         # 去掉主网格线
-    # panel.grid.minor = element_blank()
+    axis.title.x = element_text(size = 26, color = "black"),
+    axis.title.y = element_text(size = 26, color = "black"),
+    axis.text.x = element_text(size = 26, color = "black"),
+    axis.text.y = element_text(size = 26, color = "black"),
+    
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "white", colour = NA),
+    axis.line = element_line(colour = "black")
   )
 dev.off()
 
@@ -135,10 +150,10 @@ FittingEvaluationIndex(pre.test, test$LiveDead)
 roc.train <- roc(train$LiveDead, pre.train)
 roc.test <- roc(test$LiveDead, pre.test)
 pdf("roc贝叶斯.pdf", width = 8, height = 8)
-plot(roc.train, col = "blue", lwd = 3, legacy.axes = TRUE,
+plot(roc.train, col = "blue", lty = 1, lwd = 3, legacy.axes = TRUE,
      mar = c(6, 6, 2, 2), mgp = c(4, 1, 0),
      cex.lab = 2.2, cex.axis = 2.2)
-plot(roc.test, col = "red", lwd = 3, add = TRUE)
+plot(roc.test, col = "red", lty = 2, lwd = 3, add = TRUE)
 legend("bottomright",
        legend = c(paste0("Train AUC = ", round(auc(roc.train), 3)),
                   paste0("Test AUC = ",  round(auc(roc.test),  3))),
@@ -155,9 +170,9 @@ pr.test <- pr.curve(scores.class0 = pre.test[test$LiveDead == 1],
                     curve = TRUE)
 pdf("PR贝叶斯.pdf", width = 8, height = 8)
 par(mar = c(6, 6, 2, 2), mgp = c(4, 1, 0))
-plot(pr.train, col = "blue", lwd = 3, auc.main = FALSE,
+plot(pr.train, col = "blue", lwd = 3, lty = 1, auc.main = FALSE,
      cex.lab = 2.2, cex.axis = 2.2, main = "", xlim = c(0, 1), ylim = c(0, 1))
-plot(pr.test, col = "red", lwd = 3, add = TRUE)
+plot(pr.test, col = "red", lwd = 3, lty = 2, add = TRUE)
 abline(h = mean(test$LiveDead), col = "gray", lty = 2, lwd = 2)
 legend("bottomright",
        legend = c(paste0("Train AUC = ", round(pr.train$auc.integral, 3)),
@@ -180,14 +195,34 @@ newdat <- expand_grid(
 newdat$death_prob <- posterior_epred(bayes.mod, newdata = newdat) %>% colMeans()
 
 pdf("不同物种随热负荷的死亡概率曲线.pdf", width = 12, height = 6, family = "GB1")
-ggplot(newdat, aes(heat_load, death_prob, colour = Species)) +
-  geom_line(size = 1) +
-  labs(x = "热负荷", y = "死亡概率") + 
+ggplot(newdat, aes(heat_load, death_prob, colour = Species, linetype = Species)) +
+  geom_line(linewidth = 1) +
+  scale_linetype_manual(
+    values = c(
+      "PIED" = "solid",
+      "PIPO" = "dashed",
+      "PIST" = "dotted",
+      "PSME" = "dotdash"
+    )
+  ) +
+  labs(
+    x = "热负荷",
+    y = "死亡概率",
+    linetype = "Species"
+  ) + 
   theme(
-    axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
-    axis.title.y = element_text(size = 26, color = "black"),  # y轴标题字体大小
-    axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
-    axis.text.y = element_text(size = 26, color = "black"),   # y轴文本字体大小
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background = element_rect(fill = "white", colour = NA),
+    legend.key = element_rect(fill = "white", colour = NA),
+    axis.line = element_line(colour = "black"),
+    
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    
+    axis.title.x = element_text(size = 26, color = "black"),
+    axis.title.y = element_text(size = 26, color = "black"),
+    axis.text.x = element_text(size = 26, color = "black"),
+    axis.text.y = element_text(size = 26, color = "black"),
     legend.text = element_text(size = 26),
     legend.title = element_text(size = 26)
   )
