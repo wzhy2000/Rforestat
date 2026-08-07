@@ -1,5 +1,6 @@
 # 1 数据载入
 library(forestat)
+library(ggplot2)
 data(picea)
 library(dplyr)
 selected.data <- picea %>% select(BRANCH, LH, LHCB, LCW)
@@ -48,11 +49,11 @@ summary(model)
 # par(mfrow = c(1, 2))
 pdf("图3.13a.pdf", width = 8, height = 6, family = "GB1")
 par(mar = c(4.5, 5.5, 4, 2), mgp = c(3.5, 1, 0))
-plot(model, which = 1, cex.axis = 2.2, cex.lab = 2.2, ) 
+plot(model, which = 1, cex.axis = 2.2, cex.lab = 2.2, caption = "") 
 dev.off()
 pdf("图3.13b.pdf", width = 8, height = 6, family = "GB1")
 par(mar = c(4.5, 5.5, 4, 2), mgp = c(3.5, 1, 0))
-plot(model, which = 2, cex.axis = 2.2, cex.lab = 2.2)
+plot(model, which = 2, cex.axis = 2.2, cex.lab = 2.2, caption = "")
 dev.off()
 
 # 6 保存图形

@@ -367,9 +367,13 @@ roc_auc(cls.df.test, obs, d:s, estimator = "macro")$.estimate
 pr_auc(cls.df.test, obs, d:s, estimator = "macro")$.estimate
 
 library(randomForest)
+# pdf("随机森林重要性.pdf", width = 10, height = 6.9, family = "GB1")
+par(mar = c(6, 5.5, 4, 2), mgp = c(2, 1, 0))
 varImpPlot(
   cls.rf.model$finalModel,
-  cex.lab = 1.4,
-  cex.axis = 1.4,
+  cex = 2,
+  cex.lab = 1,
   main = ""
 )
+# dev.off()
+

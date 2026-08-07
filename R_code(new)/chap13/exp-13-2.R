@@ -26,7 +26,7 @@ stopifnot(all(seedling$LiveDead %in% c(0L, 1L)))
 table(seedling$LiveDead)
 
 
-pdf("不同存活状态下样本的热负荷分布.pdf", width = 10, height = 6, family = "GB1")
+# pdf("不同存活状态下样本的热负荷分布.pdf", width = 10, height = 6, family = "GB1")
 ggplot(seedling, aes(heat_load, fill = factor(LiveDead))) +
   geom_density(
     aes(linetype = factor(LiveDead)),
@@ -53,7 +53,7 @@ ggplot(seedling, aes(heat_load, fill = factor(LiveDead))) +
     legend.title = element_text(size = 26)
   )
 
-dev.off()
+# dev.off()
 
 # 数据集划分
 set.seed(123)
@@ -78,21 +78,21 @@ bayes.mod <- brm(
 
 summary(bayes.mod)
 
-pdf("森林图.pdf", width = 8, height = 6)
+# pdf("森林图.pdf", width = 8, height = 6)
 mcmc_plot(bayes.mod) + 
   theme(
     text = element_text(size = 26)
   )
-dev.off()
+# dev.off()
 
-pdf("后验预测检验的密度叠加图.pdf", width = 8, height = 6)
+# pdf("后验预测检验的密度叠加图.pdf", width = 8, height = 6)
 pp_check(bayes.mod, type = "dens_overlay")+ 
   theme(
     text = element_text(size = 26),
     legend.text = element_text(size = 26),
     plot.margin = margin(t = 20, r = 20, b = 20, l = 40)  # 上右下左，单位为“pt”
   )
-dev.off()
+# dev.off()
 
 
 library(posterior)
@@ -113,7 +113,7 @@ OR.tbl <- summarise_draws(
 
 print(OR.tbl)
 
-pdf("固定效应系数的优势比及其95可信区间.pdf", width = 12, height = 6)
+# pdf("固定效应系数的优势比及其95可信区间.pdf", width = 12, height = 6)
 ggplot(OR.tbl, aes(reorder(variable, OR), OR)) +
   geom_pointrange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
   coord_flip() +
@@ -130,13 +130,41 @@ ggplot(OR.tbl, aes(reorder(variable, OR), OR)) +
     panel.background = element_rect(fill = "white", colour = NA),
     axis.line = element_line(colour = "black")
   )
-dev.off()
+# dev.off()
 
+
+binary_metrics <- function(observed, probability, cutoff = 0.5, eps = 1e-15) {
+  predicted <- ifelse(probability >= cutoff, 1, 0)
+  TP <- sum(observed == 1 & predicted == 1)
+  TN <- sum(observed == 0 & predicted == 0)
+  FP <- sum(observed == 0 & predicted == 1)
+  FN <- sum(observed == 1 & predicted == 0)
+  
+  brier <- mean((probability - observed)^2)
+  p <- pmin(pmax(probability, eps), 1 - eps)
+  log.loss <- -mean(observed * log(p) + (1 - observed) * log(1 - p))
+  
+  data.frame(
+    Accuracy  = (TP + TN ) / (TP + TN + FP + FN),
+    Precision = TP / (TP + FP),
+    Recall    = TP / (TP + FN),
+    F1        = (2 * TP) /(2 * TP + FP + FN),
+    Brier     = brier,
+    LogLoss   = log.loss)
+}
 
 
 # 模型性能评估
 pre.train <- posterior_epred(bayes.mod, newdata = train) %>% colMeans()
-FittingEvaluationIndex(pre.train, train$LiveDead)
+pre.test <- posterior_epred(bayes.mod, newdata = test) %>% colMeans()
+evaluation <- rbind(
+      Training = binary_metrics(train$LiveDead, pre.train),
+      Test = binary_metrics(test$LiveDead, pre.test))
+round(evaluation, 3)
+
+
+# pre.train <- posterior_epred(bayes.mod, newdata = train) %>% colMeans()
+# FittingEvaluationIndex(pre.train, train$LiveDead)
 
 loo.res <- loo(bayes.mod)
 print(loo.res)
