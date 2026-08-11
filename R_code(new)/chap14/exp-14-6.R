@@ -3,6 +3,7 @@ library(doParallel)
 library(neuralnet)
 library(forestat)
 library(stringr)
+library(caret)
 data("picea")
 
 # 数据处理
