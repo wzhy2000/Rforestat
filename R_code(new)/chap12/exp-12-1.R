@@ -1,7 +1,7 @@
 library(systemfit)
 
-train.up5.HCB <- read.csv("data-{train.up5.hcb}-exp11-1.CSV",sep = ",", fileEncoding = "GBK")
-test.up5.HCB <- read.csv("data-{test.up5.hcb}-exp11-1.CSV",sep = ",", fileEncoding = "GBK")
+train.up5.HCB <- read.csv("data-{train.up5.hcb}-exp12-1.CSV",sep = ",", fileEncoding = "GBK")
+test.up5.HCB <- read.csv("data-{test.up5.hcb}-exp12-1.CSV",sep = ",", fileEncoding = "GBK")
 t.up5 <- train.up5.HCB
 
 

@@ -1,0 +1,5 @@
+# R session history files
+.Rhistory
+
+# Generated PDF output for chapter 14
+/R_code(new)/chap14/*.pdf
