@@ -76,22 +76,68 @@ pairs(emm, adjust = "holm")
 plot.df <- as.data.frame(emm)
 
 # 结果可视化
-# pdf("不同父本与母本家系组合下的拟合主干长度.pdf", width = 8, height = 6, family = "GB1")
-ggplot(plot.df, aes(male, response, colour = female, group = female)) +
+shape.values <- c(
+  F193 = 16,
+  F195 = 17,
+  F197 = 15,
+  F201 = 18,
+  F203 = 8,
+  F204 = 3,
+  F208 = 4
+)
+
+fit.plot <- ggplot(
+  plot.df,
+  aes(
+    male,
+    response,
+    colour = female,
+    shape = female,
+    group = female
+  )
+) +
   geom_point(size = 3) +
   geom_line() +
+  scale_shape_manual(values = shape.values) +
   labs(y = "拟合子代平均上胚轴长度（cm）", x = "父本家系") +
   theme_minimal() +
   theme(
-    axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
-    axis.title.y = element_text(size = 26, color = "black", margin = margin(r = 15)),  # y轴标题字体大小
-    axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
-    axis.text.y = element_text(size = 26, color = "black"),   # y轴文本字体大小
-    legend.title = element_text(size = 20),  # 图例标题字体大小
+    axis.title.x = element_text(size = 26, color = "black"),
+    axis.title.y = element_text(
+      size = 26,
+      color = "black",
+      margin = margin(r = 15)
+    ),
+    axis.text.x = element_text(size = 26, color = "black"),
+    axis.text.y = element_text(size = 26, color = "black"),
+    legend.title = element_text(size = 20),
     legend.text = element_text(size = 20)
-    # panel.grid.major = element_blank(),                     # 去掉主网格线
-    # panel.grid.minor = element_blank()
   )
+
+pdf(
+  "不同父本与母本家系组合下的拟合主干长度.pdf",
+  width = 8,
+  height = 6,
+  family = "GB1"
+)
+print(fit.plot)
+dev.off()
+# pdf("不同父本与母本家系组合下的拟合主干长度.pdf", width = 8, height = 6, family = "GB1")
+# ggplot(plot.df, aes(male, response, colour = female, group = female)) +
+#   geom_point(size = 3) +
+#   geom_line() +
+#   labs(y = "拟合子代平均上胚轴长度（cm）", x = "父本家系") +
+#   theme_minimal() +
+#   theme(
+#     axis.title.x = element_text(size = 26, color = "black"),  # x轴标题字体大小
+#     axis.title.y = element_text(size = 26, color = "black", margin = margin(r = 15)),  # y轴标题字体大小
+#     axis.text.x = element_text(size = 26, color = "black"),   # x轴文本字体大小
+#     axis.text.y = element_text(size = 26, color = "black"),   # y轴文本字体大小
+#     legend.title = element_text(size = 20),  # 图例标题字体大小
+#     legend.text = element_text(size = 20)
+#     # panel.grid.major = element_blank(),                     # 去掉主网格线
+#     # panel.grid.minor = element_blank()
+#   )
 # dev.off()
 
 # 残差图
