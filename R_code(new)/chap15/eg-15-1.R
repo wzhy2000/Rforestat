@@ -614,32 +614,26 @@ abline(0, 1, col = "red", lwd = 2, lty = 2)
 
 print(reg.rf.model$resample)
 reg.resample.long <- reg.rf.model$resample %>%
-  pivot_longer(
-    cols = c(RMSE, R.squared, MAE),
-    names_to = "Metric",
-    values_to = "Value"
-  )
+  pivot_longer(cols = c(RMSE, R.squared, MAE), names_to = "Metric", values_to = "Value") %>%
+  mutate(Metric = recode(Metric, "R.squared" = "R²"))
+
 
 pdf("交叉验证结果箱线图.pdf", width = 10, height = 6, family = "GB1")
 ggplot(reg.resample.long, aes(x = Metric, y = Value)) +
-  geom_boxplot(fill = "lightblue", width = 0.6) +
-  geom_jitter(width = 0.2, size = 2, color = "darkblue", alpha = 0.7) +
-  labs(x = "性能指标", y = "") +
+  geom_boxplot(fill = "white", color = "black", linewidth = 1, width = 0.5) +
+  geom_jitter(width = 0.08, size = 3, color = "black", alpha = 0.7) +
+  facet_wrap(~Metric, scales = "free_y", nrow = 1, strip.position = "bottom") +
+  labs(x = "", y = "") +
   theme_bw() +
   theme(
     panel.grid = element_blank(),
-    panel.background = element_rect(
-      fill = "white",
-      colour = "black"
-    ),
-    plot.background = element_rect(
-      fill = "white",
-      colour = NA
-    ),
-    axis.title.x = element_text(size = 26, color = "black"),
-    axis.title.y = element_text(size = 26, color = "black"),
-    axis.text.x = element_text(size = 26, color = "black"),
-    axis.text.y = element_text(size = 26, color = "black")
+    panel.background = element_rect(fill = "white", colour = "black"),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y = element_text(size = 26, color = "black"),
+    strip.text = element_text(size = 26, color = "black"),
+    strip.background = element_blank(),
+    strip.placement = "outside"
   )
 dev.off()
 
