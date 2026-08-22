@@ -7,7 +7,7 @@ library(tidyr)
 library(forestat)
 
 # 数据加载与预处理
-obj <- load("JFSP_all_df.rda")
+obj <- load("../../data/case-13.2.rda")
 raw <- get(obj)
 
 table(raw$LiveDead, useNA = "ifany")

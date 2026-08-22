@@ -3,7 +3,7 @@ library(dplyr)
 library(caret)
 library(nlme)
 library(forestat)
-data <- read.csv("lys-bh.CSV", sep = ",")
+data <- read.csv("../../data/case-11.2.csv", sep = ",")
 
 data <- select(data, CW, D, H, PLOT, BLOCK, CLR, SD, TYPE)
 head(data)

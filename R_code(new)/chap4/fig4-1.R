@@ -219,7 +219,7 @@ p4a <- ggplot(data, aes(x = x, y = y)) +
   geom_segment(aes(xend = x, y = 0, yend = y), color = "#2C7FB8", size = 1) +
   geom_point(color = "#2C7FB8", size = 3) +
   theme_classic() +
-  labs(x = "x", y = "概率密度") +
+  labs(x = "x", y = "概率质量") +
   ggtitle("泊松分布（λ = 4）") +
   coord_cartesian(ylim = c(0, 0.2)) +   # 设置y轴范围
   scale_y_continuous(expand = c(0, 0)) +
@@ -242,7 +242,7 @@ p4b <- ggplot(df, aes(x = x, y = y)) +
   geom_segment(aes(xend = x, y = 0, yend = y), color = "#2C7FB8", size = 1) +
   geom_point(color = "#2C7FB8", size = 3) +
   theme_classic() +
-  labs(x = "x", y = "概率密度") +
+  labs(x = "x", y = "概率质量") +
   ggtitle("泊松分布（λ = 4）") + 
   geom_vline(xintercept = x_a, linetype = "dashed", color = "red", linewidth = 1) + # 上alpha分位数线
   annotate("text", 

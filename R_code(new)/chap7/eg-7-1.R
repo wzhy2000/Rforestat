@@ -1,4 +1,4 @@
-flora <- read.csv("data-{flora}-7-1.csv", header = TRUE, sep = ",")
+flora <- read.csv("../../data/example-7.1.csv", header = TRUE, sep = ",")
 # [修订 CH7-095] 删除可能造成变量遮蔽的attach()，统一通过data参数传入数据
 
 ###### 1. 枫树数量随海拔的变化关系 ###############

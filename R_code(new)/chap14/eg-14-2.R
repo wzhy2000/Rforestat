@@ -1,6 +1,6 @@
 library(caret)
 
-data <- get(load("JFSP_all_df.rda"))
+data <- get(load("../../data/example-14.2.rda"))
 set.seed(123)
 
 # 1. 先划分训练集和测试集（保留 LiveDead 标签的分布）

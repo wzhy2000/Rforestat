@@ -3,7 +3,7 @@ library(nlme)
 
 
 # 加载数据
-data <- read.csv("data-{sample}-7-1.CSV",sep = ",")
+data <- read.csv("../../data/example-8.1.csv",sep = ",")
 data$Age <- (-1/data$Age + 1/20)
 data$Height<-log(data$Height)
 data$Type <- as.factor(data$Type)

@@ -1,4 +1,4 @@
-data <- read.csv("eg4_10.csv", stringsAsFactors = FALSE)
+data <- read.csv("../../data/example-4.13.csv", stringsAsFactors = FALSE)
 data$plot <- factor(data$plot,
                     levels = c("p1", "p2", "p3", "p4"))
 

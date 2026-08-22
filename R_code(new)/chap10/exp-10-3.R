@@ -3,7 +3,7 @@ library(ggplot2)     # 用于可视化分析
 library(forestat)
 
 set.seed(123)        # 保证抽样结果可复现
-df <- read_excel("Raw_data.xlsx", sheet = 2)  #导入原始数据
+df <- read_excel("../../data/case-10.3.xlsx", sheet = 2)  #导入原始数据
 idx <- sample(seq_len(nrow(df)), size = floor(0.7 * nrow(df)))
 train <- df[idx, ]#将70%的数据划分为建模所需的训练集
 test <- df[-idx, ]#剩余（30%）数据作为测试集以便独立验证模型的泛化能力

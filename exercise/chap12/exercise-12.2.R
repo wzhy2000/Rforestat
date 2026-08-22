@@ -1,57 +1,63 @@
+# 习题 12.2：强、弱工具变量下 2SLS 与 3SLS 的 Monte Carlo 比较
+
 library(systemfit)
-library(forestat)
-data(picea)
-picea$AGB <- picea$STEM + picea$BRANCH + picea$FOLIAGE + picea$FRUIT
-picea$DBH <- picea$D0
 
-NDBH <- DBH ~ beta1 * exp(-beta2 * LH - beta3 * CPA)
-NAGB <- AGB ~ alpha1 * DBH^alpha2 * LH^alpha3
-models <- list(NDBH, NAGB)
-instrument <- ~LH+CPA
+set.seed(123)
+B <- 300L
+n <- 300L
+true_beta <- 1.5
 
-startvalues<-c(beta1=3.119,beta2=-0.219,beta3=-0.044,alpha1=0.930,alpha2=1.737,alpha3=-0.125)
-modele3.2sls<-nlsystemfit(method="2SLS",models,startvalues,inst=instrument,
-                          data=picea)
+# z1、z2 只通过内生变量 x 影响 y；u 与 x 的扰动 v 相关，形成内生性。
+one_run <- function(pi_strength) {
+  z1 <- rnorm(n)
+  z2 <- rnorm(n)
+  w <- rnorm(n)
+  u <- rnorm(n)
+  independent_noise <- rnorm(n)
+  v <- 0.6 * u + sqrt(1 - 0.6^2) * independent_noise
+  x <- pi_strength * z1 + pi_strength * z2 + 0.5 * w + v
+  y <- 1 + true_beta * x + 0.5 * w + u
+  d <- data.frame(x, y, z1, z2, w)
 
-modele3.3sls<-nlsystemfit(method="3SLS",models,startvalues,inst=instrument,
-                          data=picea)
-cat("===== 2SLS 参数估计 =====\n")
-print(cbind(Estimate = modele3.2sls$b, StdError = modele3.2sls$se))
+  equations <- list(x = x ~ z1 + z2 + w, y = y ~ x + w)
+  instruments <- ~z1 + z2 + w
+  first_stage_full <- lm(x ~ z1 + z2 + w, data = d)
+  first_stage_restricted <- lm(x ~ w, data = d)
+  partial_f <- anova(first_stage_restricted, first_stage_full)$F[2]
 
-cat("\n===== 3SLS 参数估计 =====\n")
-print(cbind(Estimate = modele3.3sls$b, StdError = modele3.3sls$se))
+  extract_result <- function(method) {
+    fit <- systemfit(equations, method = method, inst = instruments, data = d)
+    estimate <- unname(coef(fit)["y_x"])
+    standard_error <- unname(sqrt(diag(vcov(fit)))["y_x"])
+    c(estimate = estimate, se = standard_error)
+  }
+  c(F = partial_f, SLS2 = extract_result("2SLS"), SLS3 = extract_result("3SLS"))
+}
 
-# ===== 2SLS 模型结果 =====
-cat("【2SLS 模型】\n")
-cat("方程 1 - R²:", round(modele3.2sls$eq[[1]]$r2, 5),
-    ", RMSE:", round(modele3.2sls$eq[[1]]$rmse, 5), "\n")
+summarize_simulation <- function(pi_strength, label) {
+  simulations <- t(replicate(B, one_run(pi_strength)))
+  summarize_method <- function(prefix) {
+    estimate <- simulations[, paste0(prefix, ".estimate")]
+    standard_error <- simulations[, paste0(prefix, ".se")]
+    c(
+      Bias = mean(estimate - true_beta),
+      EmpiricalSD = sd(estimate),
+      MeanSE = mean(standard_error),
+      RMSE = sqrt(mean((estimate - true_beta)^2)),
+      Coverage95 = mean(abs(estimate - true_beta) <= 1.96 * standard_error),
+      MeanFirstStageF = mean(simulations[, "F"])
+    )
+  }
+  rbind(
+    data.frame(Strength = label, Method = "2SLS", t(summarize_method("SLS2"))),
+    data.frame(Strength = label, Method = "3SLS", t(summarize_method("SLS3")))
+  )
+}
 
-cat("方程 2 - R²:", round(modele3.2sls$eq[[2]]$r2, 5),
-    ", RMSE:", round(modele3.2sls$eq[[2]]$rmse, 5), "\n")
-
-# ===== 3SLS 模型结果 =====
-cat("\n【3SLS 模型】\n")
-cat("方程 1 - R²:", round(modele3.3sls$eq[[1]]$r2, 5),
-    ", RMSE:", round(modele3.3sls$eq[[1]]$rmse, 5), "\n")
-
-cat("方程 2 - R²:", round(modele3.3sls$eq[[2]]$r2, 5),
-    ", RMSE:", round(modele3.3sls$eq[[2]]$rmse, 5), "\n")
-
-
-par(mfrow = c(2, 2))
-
-plot(modele3.2sls$eq[[1]]$predicted, modele3.2sls$eq[[1]]$residuals,
-     xlab = "Fitted DBH", ylab = "Residuals", main = "2SLS - DBH", pch = 16)
-abline(h = 0, col = "red")
-
-plot(modele3.2sls$eq[[2]]$predicted, modele3.2sls$eq[[2]]$residuals,
-     xlab = "Fitted AGB", ylab = "Residuals", main = "2SLS - AGB", pch = 16)
-abline(h = 0, col = "red")
-
-plot(modele3.3sls$eq[[1]]$predicted, modele3.3sls$eq[[1]]$residuals,
-     xlab = "Fitted DBH", ylab = "Residuals", main = "3SLS - DBH", pch = 16)
-abline(h = 0, col = "blue")
-
-plot(modele3.3sls$eq[[2]]$predicted, modele3.3sls$eq[[2]]$residuals,
-     xlab = "Fitted AGB", ylab = "Residuals", main = "3SLS - AGB", pch = 16)
-abline(h = 0, col = "blue")
+results <- rbind(
+  summarize_simulation(pi_strength = 1, label = "强工具变量 (pi=1)"),
+  summarize_simulation(pi_strength = 0.1, label = "弱工具变量 (pi=0.1)")
+)
+print(results, row.names = FALSE)
+cat("每种强度完成", B, "次重复；β 真值为", true_beta, "。\n")
+cat("弱工具变量下的偏差、RMSE 与覆盖率变化由模拟汇总判断，不能由单次样本或无条件定理替代。\n")

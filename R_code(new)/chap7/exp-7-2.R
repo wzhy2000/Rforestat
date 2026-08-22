@@ -7,7 +7,7 @@ library(PRROC)   # 用于 PR 曲线和 AUC（需要评分而非标签）
 
 
 # 数据加载与预处理
-df <- read_excel("Raw_data.xlsx", sheet = 2)
+df <- read_excel("../../data/case-7.2.xlsx", sheet = 2)
 df$Suppressed <- ifelse(df$`V(m3)` < 0.001, 1, 0)
 
 head(df)

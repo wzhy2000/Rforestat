@@ -1,7 +1,7 @@
 library(nlme)
 library(car)
 #例7.1数据加载
-data <- read.csv("data-{sample}-8-1.CSV",sep = ",", header = TRUE)
+data <- read.csv("../../data/example-8.1.csv",sep = ",", header = TRUE)
 data$Age <- (-1/data$Age + 1/20)
 data$Height<-log(data$Height)
 data$Type <- as.factor(data$Type)

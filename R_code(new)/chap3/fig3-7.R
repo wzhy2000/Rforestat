@@ -1,7 +1,7 @@
 library(ggplot2)
 library(RColorBrewer)
 library(ggpubr)
-mydat <- read.csv("lysdata.csv", fileEncoding = "GBK", sep = ",")
+mydat <- read.csv("../../data/lysdata-chap3.csv", fileEncoding = "GBK", sep = ",")
 attach(mydat)
 pdf("图3.7.pdf", width = 8, height = 6, family = "GB1")
 ggplot(mydat, aes(x = Age.Group, y = Height, fill = Age.Group)) +

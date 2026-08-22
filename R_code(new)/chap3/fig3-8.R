@@ -1,4 +1,4 @@
-#mydat <- read.csv("lysdata.csv", fileEncoding = "GBK", sep = ",")
+#mydat <- read.csv("../../data/lysdata-chap3.csv", fileEncoding = "GBK", sep = ",")
 library(ggplot2)
 library(ggpointdensity)
 mydat$Age.Group <- factor(mydat$Age.Group, 

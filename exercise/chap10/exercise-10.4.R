@@ -1,63 +1,50 @@
-# 加载数据和必要包
-data(trees)
-library(dplyr)
-library(ggplot2)
+# 习题 10.4：黑樱桃材积的幂函数与指数函数
 
-# （1）拟合多个非线性回归模型
+library(minpack.lm)
+data("trees", package = "datasets")
+d <- trees
 
-# 幂函数模型: Volume = a * Girth^b * Height^c
-model_power <- nls(Volume ~ a * Girth^b * Height^c,
-                   data = trees,
-                   start = list(a = 0.1, b = 1, c = 1))
+# （1）Girth 实为离地 4 ft 6 in 处的树干直径（in），Height 为 ft，Volume 为 ft^3。
+cat("样本量：", nrow(d), "\n")
+print(summary(d))
+if (!interactive()) grDevices::cairo_pdf(tempfile("exercise-10.4-", fileext = ".pdf"), width = 9, height = 5)
+par(mfrow = c(1, 2))
+plot(d$Girth, d$Volume, xlab = "树干直径（in）", ylab = "材积（ft^3）")
+plot(d$Height, d$Volume, xlab = "树高（ft）", ylab = "材积（ft^3）")
 
-# 指数模型: Volume = a * exp(b * Girth + c * Height)
-model_exp <- nls(Volume ~ a * exp(b * Girth + c * Height),
-                 data = trees,
-                 start = list(a = 0.1, b = 0.05, c = 0.05))
+# （2）相同加性误差下拟合两个模型。
+power_start <- list(a = 0.001, b = 2, c = 1)
+exponential_start <- list(a = 2, b = 0.13, c = 0.01)
+power_model <- nlsLM(Volume ~ a * Girth^b * Height^c, data = d, start = power_start, lower = c(0, -Inf, -Inf))
+exponential_model <- nlsLM(Volume ~ a * exp(b * Girth + c * Height), data = d, start = exponential_start, lower = c(0, -Inf, -Inf))
+print(summary(power_model))
+print(summary(exponential_model))
 
-# （2）比较模型拟合优度（AIC 与 R²）
+# （3）比较 AIC、残差异方差和固定五折验证误差。
+print(AIC(power_model, exponential_model))
+plot(predict(power_model), residuals(power_model), xlab = "幂函数拟合值", ylab = "残差")
+abline(h = 0, lty = 2, col = "red")
+if (!interactive()) dev.off()
 
-# 自定义函数计算 R²
-calc_r2 <- function(model, data) {
-  y <- data$Volume
-  y_hat <- predict(model)
-  rss <- sum((y - y_hat)^2)
-  tss <- sum((y - mean(y))^2)
-  r2 <- 1 - rss / tss
-  return(r2)
-}
+set.seed(123)
+fold_id <- sample(rep(1:5, length.out = nrow(d)))
+cv <- do.call(rbind, lapply(1:5, function(fold) {
+  train <- d[fold_id != fold, ]
+  test <- d[fold_id == fold, ]
+  mp <- nlsLM(Volume ~ a * Girth^b * Height^c, data = train, start = power_start, lower = c(0, -Inf, -Inf))
+  me <- nlsLM(Volume ~ a * exp(b * Girth + c * Height), data = train, start = exponential_start, lower = c(0, -Inf, -Inf))
+  data.frame(observed = test$Volume, power = predict(mp, newdata = test), exponential = predict(me, newdata = test))
+}))
+metrics <- function(predicted) c(RMSE = sqrt(mean((cv$observed - predicted)^2)), MAE = mean(abs(cv$observed - predicted)))
+print(rbind(power = metrics(cv$power), exponential = metrics(cv$exponential)))
 
-# 汇总模型对比
-model_comparison <- tibble(
-  Model = c("幂函数", "指数模型"),
-  AIC = c(AIC(model_power), AIC(model_exp)),
-  R_squared = c(calc_r2(model_power, trees), calc_r2(model_exp, trees))
+# （4）比较代表性取值处局部弹性。
+representative <- c(Girth = median(d$Girth), Height = median(d$Height))
+cp <- coef(power_model)
+ce <- coef(exponential_model)
+elasticity <- rbind(
+  power = c(Girth = cp["b"], Height = cp["c"]),
+  exponential = c(Girth = ce["b"] * representative["Girth"], Height = ce["c"] * representative["Height"])
 )
-
-print(model_comparison)
-
-# （3）模型参数提取与变量敏感性分析
-
-coef_power <- coef(model_power)
-coef_exp <- coef(model_exp)
-
-cat("幂函数模型参数：\n")
-print(coef_power)
-cat("\n指数模型参数（在指数函数内部的斜率）：\n")
-print(coef_exp)
-
-# 哪个变量对产量更敏感？
-cat("\n生态意义提示：\n")
-if (abs(coef_power["b"]) > abs(coef_power["c"])) {
-  cat("- 胸径对材积预测更敏感（指数大于树高）\n")
-} else {
-  cat("- 树高对材积预测更敏感（指数大于胸径）\n")
-}
-
-# 可视化实际 vs 预测（幂函数为例）
-ggplot(trees, aes(x = Volume, y = predict(model_power))) +
-  geom_point(color = "blue", size = 3) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
-  labs(title = "幂函数模型预测 vs 实际材积",
-       x = "实际材积", y = "预测材积") +
-  theme_minimal()
+print(representative)
+print(elasticity)

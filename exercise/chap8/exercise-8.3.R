@@ -1,43 +1,33 @@
-# 加载必要包
-library(nlme)
-library(ggplot2)
+# 习题 8.3：Loblolly 的随机截距和随机斜率模型
 
-# 查看数据结构
-data(Loblolly)
-str(Loblolly)
+library(lme4)
+data("Loblolly", package = "datasets")
+d <- transform(Loblolly, age_centered = age - mean(age))
 
-# 确保 Seed 是因子类型（代表家系/样地）
-Loblolly$Seed <- as.factor(Loblolly$Seed)
+# （1）每棵树 6 次观测，绘制个体生长轨迹。
+print(table(d$Seed))
+stopifnot(all(table(d$Seed) == 6L))
+if (!interactive()) grDevices::cairo_pdf(tempfile("exercise-8.3-", fileext = ".pdf"), width = 9, height = 5)
+plot(height ~ age, data = d, type = "n", xlab = "年龄", ylab = "树高", main = "14 棵树的生长轨迹")
+for (tree in levels(d$Seed)) {
+  z <- d[d$Seed == tree, ]
+  lines(z$age, z$height, col = adjustcolor(as.integer(tree), alpha.f = 0.55))
+  points(z$age, z$height, col = as.integer(tree), pch = 16, cex = 0.5)
+}
 
-### （1）以 age 为固定效应，Seed 为随机效应，构建线性混合模型
-model_lme <- lme(height ~ age, 
-                 random = ~ 1 | Seed, 
-                 data = Loblolly)
+# （2）随机截距模型。
+random_intercept <- lmer(height ~ age_centered + (1 | Seed), data = d, REML = FALSE)
+print(summary(random_intercept))
+print(VarCorr(random_intercept))
 
-# 查看模型摘要
-summary(model_lme)
+# （3）考察随机斜率，比较 AIC、方差和奇异性。
+random_slope <- lmer(height ~ age_centered + (age_centered | Seed), data = d, REML = FALSE)
+print(AIC(random_intercept, random_slope))
+print(VarCorr(random_slope))
+cat("随机斜率模型是否奇异：", isSingular(random_slope), "\n")
+plot(fitted(random_slope), resid(random_slope), pch = 16, cex = 0.5, xlab = "拟合值", ylab = "残差")
+abline(h = 0, lty = 2, col = "red")
+if (!interactive()) dev.off()
 
-### （2）分析固定效应显著性和生长趋势
-
-# 固定效应部分（age 的系数）
-fixef(model_lme)
-
-# 检验 age 是否显著影响 height
-anova(model_lme)
-
-# 可视化拟合效果
-ggplot(Loblolly, aes(x = age, y = height, group = Seed, color = Seed)) +
-  geom_point() +
-  geom_line(aes(y = predict(model_lme)), size = 1) +
-  labs(title = "幼树高度随时间变化的线性混合模型",
-       x = "年龄（年）", y = "树高（英尺）") +
-  theme_minimal()
-
-### （3）解释固定与随机效应（输出随机效应的估计）
-
-# 随机效应（家系差异）
-ranef(model_lme)
-
-# 可选：查看方差组成
-VarCorr(model_lme)
-
+# （4）Seed 是树木标识，不是家系遗传设计。
+cat("固定年龄斜率描述总体趋势；随机效应描述树木间差异，不能称为遗传方差。\n")

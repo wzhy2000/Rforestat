@@ -114,7 +114,7 @@ length(reg.train.iso.outliers)
 library(Rlof)
 reg.x.scaled <- scale(reg.train.iso)
 reg.lof.scores <- lof(reg.x.scaled, k = 20, cores = 1)
-reg.lof.outliers <- which(reg.lof.scores > 1.8)
+reg.lof.outliers <- which(reg.lof.scores > 2.2)
 length(reg.lof.outliers)
 
 ############## 3. 特征预处理 ###################
@@ -383,8 +383,8 @@ plot(
   type = "l",
   xlab = expression(log(lambda)),
   ylab = "Mean MSE across folds",
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  cex.lab = 2.2,
+  cex.axis = 2.2
 )
 abline(
   v = log(c(reg.ridge.lambda.min, reg.ridge.lambda.1se)),
@@ -526,61 +526,61 @@ reg.pre.selected.test <- predict(reg.nls.model, newdata = reg.test)
 evaluate.regression(reg.test$log.efflux, reg.pre.selected.test)
 
 reg.residuals.train <- reg.train$log.efflux - reg.pre.selected.train
-# pdf("CO2通量-土壤体积含水量train.pdf", width = 10, height = 6, family = "GB1")
+pdf("CO2通量-土壤体积含水量train.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.train$vwc,
   reg.residuals.train,
   xlab = "土壤体积含水量",
-  ylab = "残差",
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  ylab = "训练集残差",
+  cex.lab = 2.2,
+  cex.axis = 2.2
 )
-# dev.off()
+dev.off()
 
 reg.residuals.test <- reg.test$log.efflux - reg.pre.selected.test
-# pdf("CO2通量-土壤体积含水量test.pdf", width = 10, height = 6, family = "GB1")
+pdf("CO2通量-土壤体积含水量test.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.test$vwc,
   reg.residuals.test,
   xlab = "土壤体积含水量",
-  ylab = "残差",
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  ylab = "测试集残差",
+  cex.lab = 2.2,
+  cex.axis = 2.2
 )
-# dev.off()
+dev.off()
 
 reg.coef.summary <- coef(reg.lm.model$finalModel)
 print(reg.coef.summary)
 
-# pdf("CO2训练集残差图.pdf", width = 10, height = 6, family = "GB1")
+pdf("CO2训练集残差图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.pre.selected.train,
   reg.residuals.train,
   xlab = "土壤CO2通量预测值（log1p尺度）",
   ylab = "残差",
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  cex.lab = 2.25,
+  cex.axis = 2.25
 )
 abline(h = 0, col = "red", lty = 2)
-# dev.off()
+dev.off()
 
-# pdf("CO2测试集残差图.pdf", width = 10, height = 6, family = "GB1")
+pdf("CO2测试集残差图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.pre.selected.test,
   reg.residuals.test,
   xlab = "土壤CO2通量预测值（log1p尺度）",
   ylab = "残差",
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  cex.lab = 2.25,
+  cex.axis = 2.25
 )
 abline(h = 0, col = "red", lty = 2)
-# dev.off()
+dev.off()
 
-# pdf("CO2训练集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
+pdf("CO2训练集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.train$log.efflux,
@@ -590,13 +590,13 @@ plot(
   pch = 20,
   col = "black",
   cex = 1,
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  cex.lab = 2.25,
+  cex.axis = 2.25
 )
 abline(0, 1, col = "red", lwd = 2, lty = 2)
-# dev.off()
+dev.off()
 
-# pdf("CO2测试集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
+pdf("CO2测试集真实值与预测值散点图.pdf", width = 10, height = 6, family = "GB1")
 par(mar = c(5, 6, 4, 2))
 plot(
   reg.test$log.efflux,
@@ -606,11 +606,11 @@ plot(
   pch = 20,
   col = "black",
   cex = 1,
-  cex.lab = 1.8,
-  cex.axis = 1.8
+  cex.lab = 2.25,
+  cex.axis = 2.25
 )
 abline(0, 1, col = "red", lwd = 2, lty = 2)
-# dev.off()
+dev.off()
 
 print(reg.rf.model$resample)
 reg.resample.long <- reg.rf.model$resample %>%

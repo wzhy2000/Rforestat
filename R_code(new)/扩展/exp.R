@@ -10,7 +10,7 @@ library(corrplot)
 library(cowplot)
 
 ############ 1 数据预处理 ###############
-data <- read.csv("forestfires.csv")
+data <- read.csv("../../data/extension-forestfires.csv")
 colnames(data)
 
 

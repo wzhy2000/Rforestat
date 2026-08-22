@@ -5,14 +5,14 @@ rm(list = ls())
 
 library(forestat)
 
-poplar <- read.csv("tree.CSV", sep = ",")
+poplar <- read.csv("../../data/case-6.1.csv", sep = ",")
 
-model.x5 <- lm(y ~ x5, data = poplar)
-summary(model.x5)
+model.x4 <- lm(y ~ x4, data = poplar)
+summary(model.x4)
 
 #pdf("diagnosisgraph.pdf")
 par(mfrow = c(2, 2), cex = 1.1, cex.axis = 1.1, cex.lab = 1.1, cex.main = 1.1)
-plot(model.x5)
+plot(model.x4)
 #dev.off()
 
 

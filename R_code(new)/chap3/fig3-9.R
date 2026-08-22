@@ -1,4 +1,4 @@
-#mydat <- read.csv("lysdata.csv", fileEncoding = "GBK", sep = ",")
+#mydat <- read.csv("../../data/lysdata-chap3.csv", fileEncoding = "GBK", sep = ",")
 mycols <- c("red", "yellow", "blue", "pink", "green")
 p1 <- ggplot(mydat, aes(x = DBH, y = Height)) +
   geom_point(aes(color = Age.Group), size = 1) +  

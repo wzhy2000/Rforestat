@@ -1,6 +1,6 @@
-data.train <- read.csv("la_m.csv")
-data.test <- read.csv("la_v.csv")
-data.total <- read.csv("la_tot.csv")
+data.train <- read.csv("../../data/case-9.2-train.csv")
+data.test <- read.csv("../../data/case-9.2-test.csv")
+data.total <- read.csv("../../data/case-9.2-full.csv")
 
 summary(data.train)
 summary(data.test)

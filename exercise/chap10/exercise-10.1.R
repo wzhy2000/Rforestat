@@ -1,54 +1,79 @@
+# 习题 10.1：Shannon 多样性的幂函数与指数函数模型
+
 library(vegan)
-library(nlme)
+library(minpack.lm)
 library(ggplot2)
+data("mite", package = "vegan")
+data("mite.env", package = "vegan")
 
-data(mite)
-data(mite.env)
+d <- transform(mite.env, Shannon = diversity(mite, index = "shannon"))
+d <- d[complete.cases(d[c("Shannon", "WatrCont")]), ]
 
-# 计算 Shannon 多样性
-shannon <- diversity(mite)
-df <- data.frame(Diversity = shannon, WatrCont = mite.env$WatrCont)
-mod_pow_gnls <- gnls(Diversity ~ a * WatrCont^b,
-                     data = df,
-                     start = list(a = 1, b = 0.1))
+# （1）幂函数要求 WatrCont 严格为正。
+stopifnot(all(d$WatrCont > 0))
+print(summary(d[c("Shannon", "WatrCont")]))
 
-summary(mod_pow_gnls)
-mod_exp_gnls <- gnls(Diversity ~ a * exp(b * WatrCont),
-                     data = df,
-                     start = list(a = 1, b = 0.01))
-
-summary(mod_exp_gnls)
-# AIC
-AIC(mod_pow_gnls)
-AIC(mod_exp_gnls)
-
-# R² 自定义函数
-calc_r2_gnls <- function(model, data) {
-  y_obs <- data$Diversity
-  y_pred <- predict(model)
-  ss_tot <- sum((y_obs - mean(y_obs))^2)
-  ss_res <- sum((y_obs - y_pred)^2)
-  1 - ss_res / ss_tot
+calc_r2 <- function(model, observed) {
+  predicted <- predict(model)
+  1 - sum((observed - predicted)^2) / sum((observed - mean(observed))^2)
 }
 
-calc_r2_gnls(mod_pow_gnls, df)
-calc_r2_gnls(mod_exp_gnls, df)
-df$pow_gnls <- predict(mod_pow_gnls)
-df$exp_gnls <- predict(mod_exp_gnls)
-library(tidyr)
-df_long <- pivot_longer(df, cols = c(pow_gnls, exp_gnls),
-                        names_to = "Model", values_to = "Fitted")
+# （2）幂函数；记录起始值并使用正尺度参数约束。
+power_start <- list(a = 3, b = 0)
+power_model <- nlsLM(
+  Shannon ~ a * WatrCont^b,
+  data = d, start = power_start,
+  lower = c(a = 0, b = -Inf)
+)
+print(summary(power_model))
 
-ggplot(df, aes(x = WatrCont, y = Diversity)) +
-  geom_point(size = 2, color = "black") +
-  geom_line(data = df_long, aes(x = WatrCont, y = Fitted, color = Model, linetype = Model), size = 1.2) +
-  scale_color_manual(values = c("pow_gnls" = "red", "exp_gnls" = "green"),
-                     labels = c("幂函数拟合", "指数函数拟合")) +
-  scale_linetype_manual(values = c("pow_gnls" = "dashed", "exp_gnls" = "dotted"),
-                        labels = c("幂函数拟合", "指数函数拟合")) +
-  labs(title = "nlme::gnls 非线性模型拟合效果",
-       x = "土壤水分 WatrCont (%)",
-       y = "Shannon多样性",
-       color = "拟合模型", 
-       linetype = "拟合模型") +
-  theme_minimal(base_size = 14)
+# （3）指数函数。
+exponential_start <- list(a = 2, b = 0)
+exponential_model <- nlsLM(
+  Shannon ~ a * exp(b * WatrCont),
+  data = d, start = exponential_start,
+  lower = c(a = 0, b = -Inf)
+)
+print(summary(exponential_model))
+
+comparison <- data.frame(
+  model = c("power", "exponential"),
+  AIC = c(AIC(power_model), AIC(exponential_model)),
+  R2 = c(calc_r2(power_model, d$Shannon), calc_r2(exponential_model, d$Shannon))
+)
+print(comparison)
+
+# （4）相同五折和指标比较验证误差。
+set.seed(123)
+fold_id <- sample(rep(1:5, length.out = nrow(d)))
+cv <- do.call(rbind, lapply(1:5, function(fold) {
+  train <- d[fold_id != fold, ]
+  test <- d[fold_id == fold, ]
+  mp <- nlsLM(Shannon ~ a * WatrCont^b, data = train, start = power_start, lower = c(0, -Inf))
+  me <- nlsLM(Shannon ~ a * exp(b * WatrCont), data = train, start = exponential_start, lower = c(0, -Inf))
+  data.frame(
+    observed = test$Shannon,
+    power = predict(mp, newdata = test),
+    exponential = predict(me, newdata = test)
+  )
+}))
+metrics <- function(predicted) c(
+  RMSE = sqrt(mean((cv$observed - predicted)^2)),
+  MAE = mean(abs(cv$observed - predicted))
+)
+print(rbind(power = metrics(cv$power), exponential = metrics(cv$exponential)))
+
+grid <- data.frame(WatrCont = seq(min(d$WatrCont), max(d$WatrCont), length.out = 200))
+curves <- rbind(
+  data.frame(grid, Shannon = predict(power_model, newdata = grid), model = "幂函数"),
+  data.frame(grid, Shannon = predict(exponential_model, newdata = grid), model = "指数函数")
+)
+if (!interactive()) grDevices::cairo_pdf(tempfile("exercise-10.1-", fileext = ".pdf"), width = 9, height = 5)
+print(
+  ggplot(d, aes(WatrCont, Shannon)) +
+    geom_point() + geom_line(data = curves, aes(colour = model), linewidth = 1) +
+    labs(title = "土壤含水量与 Shannon 多样性", x = "WatrCont", y = "Shannon") +
+    theme_minimal()
+)
+if (!interactive()) dev.off()
+cat("模型优劣只限于当前加性误差假设和观测范围；负指数参数的长期外推不能自动赋予生态意义。\n")

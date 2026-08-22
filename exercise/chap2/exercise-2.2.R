@@ -1,22 +1,16 @@
-# 创建向量
-a <- c(2, 5, 8, 3, 9)
+# 习题 2.2：数值向量、逻辑比较与索引
 
-# 计算统计量
-mean_a <- mean(a)
-var_a <- var(a)
-sd_a <- sd(a)
+# （1）创建向量并计算描述统计量。
+x <- c(2, 5, 7, 9, 1, 5, 6, 4)
+statistics <- c(mean = mean(x), variance = var(x), sd = sd(x))
+print(statistics)
 
-# 逻辑判断
-greater_than_5 <- a > 5
-indices <- which(greater_than_5)
-
-# 奇偶判断
-parity <- ifelse(a %% 2 == 0, "偶数", "奇数")
-
-# 输出结果
-print(mean_a)
-print(var_a)
-print(sd_a)
+# （2）严格以 5 为阈值；等于 5 的元素不会被选中。
+greater_than_5 <- x > 5
 print(greater_than_5)
-print(indices)
-print(parity)
+stopifnot(!any(greater_than_5[x == 5]))
+
+# （3）同时输出满足条件的位置和原始数值。
+indices <- which(greater_than_5)
+selected <- data.frame(index = indices, value = x[indices])
+print(selected)

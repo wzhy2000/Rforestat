@@ -3,7 +3,7 @@ library(tidyverse)
 
 ############## 1. 数据加载与划分 ###################
 
-cls.data <- read.csv("ASTER.csv")
+cls.data <- read.csv("../../data/example-15.2.csv")
 str(cls.data)
 cls.data$class <- factor(trimws(cls.data$class))
 
@@ -137,7 +137,7 @@ cls.nzv
 cls.cor.matrix <- cor(cls.train.num)
 library(corrplot)
 
-# pdf("ASTER 影像数据集特征之间相关性图.pdf", width = 8, height = 6)
+pdf("ASTER 影像数据集特征之间相关性图.pdf", width = 16, height = 12)
 gray.cols <- colorRampPalette(
   c("white", "gray50", "black")
 )(200)
@@ -149,12 +149,12 @@ corrplot(
   col = gray.cols,
   cl.lim = c(-1, 1),
   number.cex = 1,
-  tl.cex = 1,
+  tl.cex = 2.4,
   tl.col = "black",
-  cl.cex = 1,
+  cl.cex = 3,
   addgrid.col = "gray70"
 )
-# dev.off()
+dev.off()
 
 cls.high.corr <- findCorrelation(cls.cor.matrix, cutoff = 0.6)
 cls.high.corr
@@ -298,16 +298,17 @@ roc_curve(cls.df.cv, obs, d, h, o, s) %>%
   theme_bw() +
   theme(
     panel.grid = element_blank(),
+    panel.spacing.x = unit(0.6, "cm"),
     strip.background = element_rect(
       fill = "white",
       colour = "black"
     ),
-    strip.text = element_text(size = 18, colour = "black"),
-    plot.title = element_text(size = 18),
-    axis.title = element_text(size = 18),
-    axis.text = element_text(size = 18),
-    legend.title = element_text(size = 18),
-    legend.text = element_text(size = 18)
+    strip.text = element_text(size = 24, colour = "black"),
+    plot.title = element_text(size = 24),
+    axis.title = element_text(size = 24),
+    axis.text = element_text(size = 24),
+    legend.title = element_text(size = 24),
+    legend.text = element_text(size = 24)
   )
 dev.off()
 
@@ -319,16 +320,17 @@ pr_curve(cls.df.cv, obs, d, h, o, s) %>%
   theme_bw() +
   theme(
     panel.grid = element_blank(),
+    panel.spacing.x = unit(0.6, "cm"),
     strip.background = element_rect(
       fill = "white",
       colour = "black"
     ),
-    strip.text = element_text(size = 18, colour = "black"),
-    plot.title = element_text(size = 18),
-    axis.title = element_text(size = 18),
-    axis.text = element_text(size = 18),
-    legend.title = element_text(size = 18),
-    legend.text = element_text(size = 18)
+    strip.text = element_text(size = 24, colour = "black"),
+    plot.title = element_text(size = 24),
+    axis.title = element_text(size = 24),
+    axis.text = element_text(size = 24),
+    legend.title = element_text(size = 24),
+    legend.text = element_text(size = 24)
   )
 dev.off()
 

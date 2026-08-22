@@ -108,8 +108,11 @@ modela.svm <- svm(AGB ~ LH + LHCB + CPA + D0 + H0 + HCB0 + CW,
 
 # 预测和评估
 y.pred <- predict(modela.svm, newdata = x.test)
-y.mse <- mean((y.pred - y.test)^2)
-y.rsq  <- cor(y.pred, y.test)^2
+FittingEvaluationIndex(y.pred, y.test)
+y.mse <- mean((y.test - y.pred)^2)
+y.rsq <- 1 - sum((y.test - y.pred)^2) /
+  sum((y.test - mean(y.test))^2)
+
 cat("测试集 MSE：", y.mse, " R²：", y.rsq, "\n")
 
 # tune.svm模型
@@ -124,8 +127,8 @@ summary(modela.svm.best)
 
 # 预测和评估
 y.pred <- predict(modela.svm.best, newdata = x.test)
-y.mse <- mean((y.pred - y.test)^2)
-y.rsq <- cor(y.pred, y.test)^2
+y.mse <- mean((y.test - y.pred)^2)
+y.rsq <- 1 - sum((y.test - y.pred)^2) / sum((y.test - mean(y.test))^2)
 cat("测试集 MSE：", y.mse, " R²：", y.rsq, "\n")
 
 

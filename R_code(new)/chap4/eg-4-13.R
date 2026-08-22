@@ -1,6 +1,6 @@
 library(dplyr)
 library(tidyr)
-tree_wide <- read.csv("../../data/eg4_10.csv", stringsAsFactors = FALSE)
+tree_wide <- read.csv("../../data/example-4.13.csv", stringsAsFactors = FALSE)
 tree.long <- tree_wide %>%
   pivot_longer(
     cols = c(Height0, Height.after.3.years, Height.after.6.years),

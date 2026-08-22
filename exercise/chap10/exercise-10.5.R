@@ -1,42 +1,43 @@
-data(CO2)
+# 习题 10.5：Qn1 光合作用饱和曲线比较
+
+library(minpack.lm)
 library(ggplot2)
-df <- subset(CO2, Plant == "Qn1")
-head(df)
-ggplot(df, aes(x = conc, y = uptake)) +
-  geom_point() +
-  labs(title = "Qn1植物CO₂浓度与吸收速率关系", x = "CO₂浓度", y = "吸收速率") +
-  theme_minimal()
-mm_model <- nls(uptake ~ Vmax * conc / (K + conc),
-                data = df,
-                start = list(Vmax = 40, K = 300))
-summary(mm_model)
-log_model <- nls(uptake ~ a + b * log(conc),
-                 data = df,
-                 start = list(a = 0, b = 1))
-summary(log_model)
-exp_model <- nls(uptake ~ a * (1 - exp(-b * conc)),
-                 data = df,
-                 start = list(a = 30, b = 0.01))
-summary(exp_model)
-calc_r2 <- function(model, data) {
-  y <- data$uptake
-  y_pred <- predict(model)
-  1 - sum((y - y_pred)^2) / sum((y - mean(y))^2)
+data("CO2", package = "datasets")
+d <- subset(CO2, as.character(Plant) == "Qn1")
+stopifnot(nrow(d) == 7L, all(d$conc > 0))
+
+# （1）三个均值函数及起始值；前两个模型约束渐近值和速率参数为正。
+mm_start <- list(Vmax = 45, Km = 100)
+sat_start <- list(Asym = 40, k = 0.007)
+log_start <- list(a = -20, b = 9)
+
+mm_model <- nlsLM(uptake ~ Vmax * conc / (Km + conc), data = d, start = mm_start, lower = c(0, 0))
+sat_model <- nlsLM(uptake ~ Asym * (1 - exp(-k * conc)), data = d, start = sat_start, lower = c(0, 0))
+log_model <- nlsLM(uptake ~ a + b * log(conc), data = d, start = log_start)
+
+# （2）报告收敛、参数、残差和可计算的 profile 区间。
+models <- list(Michaelis_Menten = mm_model, exponential_saturation = sat_model, empirical_log = log_model)
+for (name in names(models)) {
+  cat("\n---", name, "---\n")
+  print(summary(models[[name]]))
+  interval <- tryCatch(confint(models[[name]]), error = function(e) conditionMessage(e))
+  print(interval)
 }
 
-cat("Michaelis-Menten R²:", round(calc_r2(mm_model, df), 3), "\n")
-cat("Log 模型 R²:", round(calc_r2(log_model, df), 3), "\n")
-cat("指数饱和 R²:", round(calc_r2(exp_model, df), 3), "\n")
-df$mm_fit <- predict(mm_model)
-df$log_fit <- predict(log_model)
-df$exp_fit <- predict(exp_model)
+calc_r2 <- function(model) 1 - sum(residuals(model)^2) / sum((d$uptake - mean(d$uptake))^2)
+comparison <- data.frame(
+  model = names(models),
+  AIC = vapply(models, AIC, numeric(1)),
+  R2 = vapply(models, calc_r2, numeric(1))
+)
+print(comparison)
 
-ggplot(df, aes(x = conc, y = uptake)) +
-  geom_point(color = "black") +
-  geom_line(aes(y = mm_fit), color = "blue", linetype = "solid") +
-  geom_line(aes(y = log_fit), color = "green", linetype = "dashed") +
-  geom_line(aes(y = exp_fit), color = "red", linetype = "dotted") +
-  labs(title = "不同非线性模型拟合对比",
-       x = "CO₂浓度", y = "吸收速率") +
-  theme_minimal() +
-  scale_color_manual(values = c("blue", "green", "red"))
+# （3）只在观测浓度范围展示拟合曲线并说明 n=7 限制。
+grid <- data.frame(conc = seq(min(d$conc), max(d$conc), length.out = 200))
+curves <- do.call(rbind, lapply(names(models), function(name) {
+  data.frame(grid, uptake = predict(models[[name]], newdata = grid), model = name)
+}))
+if (!interactive()) grDevices::cairo_pdf(tempfile("exercise-10.5-", fileext = ".pdf"), width = 8, height = 5)
+print(ggplot(d, aes(conc, uptake)) + geom_point() + geom_line(data = curves, aes(colour = model), linewidth = 1) + theme_minimal())
+if (!interactive()) dev.off()
+cat("Qn1 只有 7 个浓度点，AIC 和外推比较仅作函数拟合示范。\n")

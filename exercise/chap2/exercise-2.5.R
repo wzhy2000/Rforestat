@@ -1,17 +1,34 @@
-# 生成100个标准正态分布数据
-set.seed(1)
-data <- rnorm(100)
-setwd("D:/你的路径")  # 改成你想要保存的文件夹路径
-# 打开PNG图形设备，设置宽高与分辨率
-png("histogram.png", width = 800, height = 600, res = 100)
+# 习题 2.5：可复现的随机模拟与图形导出
 
-# 绘图（不使用中文，避免编码问题）
-hist(data,
-     col = "lightblue",
-     main = "Histogram of N(0,1)",
-     xlab = "Value",
-     ylab = "Frequency",
-     border = "darkgray")
+# （1）固定随机种子，生成 1 000 个标准正态随机数。
+set.seed(123)
+x <- rnorm(1000)
+statistics <- c(mean = mean(x), sd = sd(x))
+print(statistics)
 
-# 关闭图形设备，保存图像
+# （2）（3）绘制直方图，并按指定像素尺寸和分辨率导出。
+output_file <- "histogram.png"
+width_px <- 1800
+height_px <- 1200
+resolution_dpi <- 200
+
+png(output_file, width = width_px, height = height_px, res = resolution_dpi)
+hist(
+  x,
+  breaks = "FD",
+  col = "skyblue",
+  border = "white",
+  main = "标准正态随机数直方图",
+  xlab = "模拟值",
+  ylab = "频数"
+)
 dev.off()
+
+stopifnot(file.exists(output_file), file.info(output_file)$size > 0)
+cat(
+  "图形文件：", output_file,
+  "；宽度：", width_px, " px",
+  "；高度：", height_px, " px",
+  "；分辨率：", resolution_dpi, " dpi\n",
+  sep = ""
+)

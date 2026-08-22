@@ -1,7 +1,7 @@
 library(ggplot2)
 library(RColorBrewer)
 library(ggpubr)
-mydata <- read.csv("lysdata.csv", fileEncoding = "GBK", sep = ",")
+mydata <- read.csv("../../data/lysdata-appendix.csv", fileEncoding = "GBK", sep = ",")
 attach(mydata)
 # 图1
 pdf("图1.pdf",width = 8,height = 6, family = "GB1")
@@ -186,7 +186,7 @@ library(tidyverse)
 library(reshape2)
 library(psych)
 library(viridis)
-lysdata <- read.csv("lysdata.csv", fileEncoding = "GB18030")
+lysdata <- read.csv("../../data/lysdata-appendix.csv", fileEncoding = "GB18030")
 lysdata_continuous <- lysdata %>%
   select(-c(1, 2, 18)) %>%     
   select(where(is.numeric))     
