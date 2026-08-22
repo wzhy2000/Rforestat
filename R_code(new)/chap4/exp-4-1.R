@@ -116,19 +116,19 @@ summary(model.aov.D)
 
 # 7 协方差分析：继续使用样本1的样地均值数据，并在必要时保留交互项
 # 对连续自变量中心化，使主效应对应另一变量处于样本均值时的关系。
-plot.data1$D_c <- as.numeric(scale(plot.data1$D, center = TRUE, scale = FALSE))
-plot.data1$SD_c <- as.numeric(scale(plot.data1$SD, center = TRUE, scale = FALSE))
-
-# 未控制林分密度时，检验胸径与树高的总体线性关联。
-model.total <- lm(H ~ D_c, data = plot.data1)
-anova(model.total)
-
-# 比较加性模型与含交互项模型，检验胸径—树高关系是否随林分密度变化。
-model.add <- lm(H ~ D_c + SD_c, data = plot.data1)
-model.int <- lm(H ~ D_c * SD_c, data = plot.data1)
-anova(model.add, model.int)
-
-# 交互项不显著时，正式拟合并报告共同斜率的协方差分析模型。
-model.ancova <- lm(H ~ D_c + SD_c, data = plot.data1)
-anova(model.ancova)
-# summary(model.ancova)
+# plot.data1$D_c <- as.numeric(scale(plot.data1$D, center = TRUE, scale = FALSE))
+# plot.data1$SD_c <- as.numeric(scale(plot.data1$SD, center = TRUE, scale = FALSE))
+# 
+# # 未控制林分密度时，检验胸径与树高的总体线性关联。
+# model.total <- lm(H ~ D_c, data = plot.data1)
+# anova(model.total)
+# 
+# # 比较加性模型与含交互项模型，检验胸径—树高关系是否随林分密度变化。
+# model.add <- lm(H ~ D_c + SD_c, data = plot.data1)
+# model.int <- lm(H ~ D_c * SD_c, data = plot.data1)
+# anova(model.add, model.int)
+# 
+# # 交互项不显著时，正式拟合并报告共同斜率的协方差分析模型。
+# model.ancova <- lm(H ~ D_c + SD_c, data = plot.data1)
+# anova(model.ancova)
+# # summary(model.ancova)
